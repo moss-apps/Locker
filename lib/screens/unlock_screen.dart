@@ -62,10 +62,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
   }
 
   void _handlePinChanged() {
+    // Only trigger rebuild if there's an error to clear
     if (_errorMessage != null) {
-      setState(() {
-        _errorMessage = null;
-      });
+      setState(() => _errorMessage = null);
     }
   }
 
@@ -73,12 +72,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
     final password = _passwordController.text;
 
     if (password.isEmpty) {
-      setState(() {
-        _errorMessage = 'Please enter your password';
-      });
+      setState(() => _errorMessage = 'Please enter your password');
       return;
     }
 
+    // Batch state update for loading state
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -93,11 +91,12 @@ class _UnlockScreenState extends State<UnlockScreen> {
         ),
       );
     } else if (mounted) {
+      // Batch state update for error state
       setState(() {
         _isLoading = false;
         _errorMessage = 'Incorrect password. Please try again.';
-        _passwordController.clear();
       });
+      _passwordController.clear();
     }
   }
 
@@ -231,9 +230,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                       ),
                       onChanged: (_) {
                         if (_errorMessage != null) {
-                          setState(() {
-                            _errorMessage = null;
-                          });
+                          setState(() => _errorMessage = null);
                         }
                       },
                       onSubmitted: (_) => _handlePasswordAuth(),

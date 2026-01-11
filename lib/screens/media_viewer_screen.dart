@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +49,10 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
   // For encrypted files
   final Map<String, Uint8List?> _decryptedCache = {};
 
+  // Debounce timer for video player updates (reduces setState calls)
+  Timer? _videoUpdateTimer;
+  static const _videoUpdateInterval = Duration(milliseconds: 250);
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +66,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
 
   @override
   void dispose() {
+    _videoUpdateTimer?.cancel();
     _videoController?.dispose();
     _pageController.dispose();
     // Restore system UI
@@ -120,10 +126,9 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       await _videoController!.setPlaybackSpeed(_playbackSpeed);
       await _videoController!.setVolume(_isMuted ? 0.0 : 1.0);
 
-      // Add listener to update UI for progress
-      _videoController!.addListener(() {
-        if (mounted) setState(() {});
-      });
+      // Add debounced listener to update UI for progress
+      // Updates every 250ms instead of every frame to reduce setState calls
+      _videoController!.addListener(_onVideoUpdate);
 
       if (mounted) {
         setState(() {
@@ -134,6 +139,18 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       debugPrint('Error initializing video: $e');
       ToastUtils.showError('Failed to load video');
     }
+  }
+
+  /// Debounced video update handler - limits UI updates to _videoUpdateInterval
+  /// This prevents setState from being called on every video frame (~60 times/sec)
+  void _onVideoUpdate() {
+    // Skip if timer is already scheduled (debouncing)
+    if (_videoUpdateTimer?.isActive == true) return;
+
+    // Schedule the actual setState call
+    _videoUpdateTimer = Timer(_videoUpdateInterval, () {
+      if (mounted) setState(() {});
+    });
   }
 
   void _onPageChanged(int index) {
