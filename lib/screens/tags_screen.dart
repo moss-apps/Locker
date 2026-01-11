@@ -55,7 +55,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     final tagsAsync = ref.watch(tagsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(),
       body: _selectedTag != null
           ? _buildTagFilesView()
@@ -109,7 +109,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     }
 
     return AppBar(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       foregroundColor: AppColors.lightTextPrimary,
       elevation: 0,
       leading: IconButton(
@@ -153,7 +153,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               'Failed to load tags',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
           ],
@@ -182,7 +182,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
   Widget _buildTagItem(TagInfo tag) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: AppColors.lightBackgroundSecondary,
+      color: context.backgroundSecondary,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
@@ -217,7 +217,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                         fontFamily: 'ProductSans',
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
-                        color: AppColors.lightTextPrimary,
+                        color: context.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -226,7 +226,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                       style: TextStyle(
                         fontFamily: 'ProductSans',
                         fontSize: 13,
-                        color: AppColors.lightTextSecondary,
+                        color: context.textSecondary,
                       ),
                     ),
                   ],
@@ -234,7 +234,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               ),
               Icon(
                 Icons.chevron_right,
-                color: AppColors.lightTextTertiary,
+                color: context.textTertiary,
               ),
             ],
           ),
@@ -267,7 +267,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: AppColors.lightTextPrimary,
+              color: context.textPrimary,
               fontFamily: 'ProductSans',
             ),
           ),
@@ -278,7 +278,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               'Create tags to organize your files by category',
               style: TextStyle(
                 fontSize: 14,
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
                 fontFamily: 'ProductSans',
               ),
               textAlign: TextAlign.center,
@@ -313,7 +313,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
           'Failed to load files',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextSecondary,
+            color: context.textSecondary,
           ),
         ),
       ),
@@ -354,7 +354,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
           Icon(
             Icons.folder_open_outlined,
             size: 64,
-            color: AppColors.lightTextTertiary,
+            color: context.textTertiary,
           ),
           const SizedBox(height: 16),
           Text(
@@ -362,7 +362,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppColors.lightTextPrimary,
+              color: context.textPrimary,
               fontFamily: 'ProductSans',
             ),
           ),
@@ -371,7 +371,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
             'Add this tag to files from the gallery',
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.lightTextSecondary,
+              color: context.textSecondary,
               fontFamily: 'ProductSans',
             ),
           ),
@@ -401,7 +401,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: AppColors.lightBackgroundSecondary,
+              color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
                   ? Border.all(color: AppColors.accent, width: 3)
@@ -615,7 +615,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -626,7 +626,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.lightBorder,
+                color: context.borderColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -657,7 +657,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.lightTextPrimary,
+                                  color: context.textPrimary,
                                   fontFamily: 'ProductSans'),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -667,7 +667,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                               '${file.extension.toUpperCase()} • ${file.formattedSize}',
                               style: TextStyle(
                                   fontSize: 13,
-                                  color: AppColors.lightTextSecondary,
+                                  color: context.textSecondary,
                                   fontFamily: 'ProductSans'),
                             ),
                           ],
@@ -679,7 +679,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                   Text('Preview not available',
                       style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.lightTextSecondary,
+                          color: context.textSecondary,
                           fontFamily: 'ProductSans')),
                   const SizedBox(height: 12),
                   ListTile(
@@ -748,7 +748,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -803,7 +803,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -846,12 +846,12 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           title: Text(
             'Create Tag',
             style: TextStyle(
               fontFamily: 'ProductSans',
-              color: AppColors.lightTextPrimary,
+              color: context.textPrimary,
             ),
           ),
           content: Column(
@@ -863,7 +863,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                   labelText: 'Tag Name',
                   labelStyle: TextStyle(
                     fontFamily: 'ProductSans',
-                    color: AppColors.lightTextSecondary,
+                    color: context.textSecondary,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -885,7 +885,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                 style: TextStyle(
                   fontFamily: 'ProductSans',
                   fontWeight: FontWeight.w600,
-                  color: AppColors.lightTextPrimary,
+                  color: context.textPrimary,
                 ),
               ),
               const SizedBox(height: 12),
@@ -905,7 +905,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                         shape: BoxShape.circle,
                         border: isSelected
                             ? Border.all(
-                                color: AppColors.lightTextPrimary, width: 3)
+                                color: context.textPrimary, width: 3)
                             : null,
                         boxShadow: isSelected
                             ? [
@@ -934,7 +934,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                 'Cancel',
                 style: TextStyle(
                   fontFamily: 'ProductSans',
-                  color: AppColors.lightTextSecondary,
+                  color: context.textSecondary,
                 ),
               ),
             ),
@@ -976,7 +976,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -987,7 +987,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.lightBorder,
+                color: context.borderColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1016,7 +1016,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.lightTextPrimary,
+                          color: context.textPrimary,
                           fontFamily: 'ProductSans',
                         ),
                       ),
@@ -1068,12 +1068,12 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           title: Text(
             'Change Color',
             style: TextStyle(
               fontFamily: 'ProductSans',
-              color: AppColors.lightTextPrimary,
+              color: context.textPrimary,
             ),
           ),
           content: Wrap(
@@ -1092,7 +1092,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                     shape: BoxShape.circle,
                     border: isSelected
                         ? Border.all(
-                            color: AppColors.lightTextPrimary, width: 3)
+                            color: context.textPrimary, width: 3)
                         : null,
                   ),
                   child: isSelected
@@ -1109,7 +1109,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                 'Cancel',
                 style: TextStyle(
                   fontFamily: 'ProductSans',
-                  color: AppColors.lightTextSecondary,
+                  color: context.textSecondary,
                 ),
               ),
             ),
@@ -1142,19 +1142,19 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text(
           'Delete Tag',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
         content: Text(
           'Are you sure you want to delete "${tag.name}"? This tag will be removed from all files.',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextSecondary,
+            color: context.textSecondary,
           ),
         ),
         actions: [
@@ -1164,7 +1164,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               'Cancel',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
           ),
@@ -1213,19 +1213,19 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text(
           'Delete Files',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
         content: Text(
           'Are you sure you want to delete ${_selectedFiles.length} file(s)? This action cannot be undone.',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextSecondary,
+            color: context.textSecondary,
           ),
         ),
         actions: [
@@ -1235,7 +1235,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               'Cancel',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
           ),
@@ -1279,7 +1279,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -1290,7 +1290,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.lightBorder,
+                color: context.borderColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1304,7 +1304,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.lightTextPrimary,
+                      color: context.textPrimary,
                       fontFamily: 'ProductSans',
                     ),
                   ),
@@ -1322,7 +1322,7 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
                           option.displayName,
                           style: TextStyle(
                             fontFamily: 'ProductSans',
-                            color: AppColors.lightTextPrimary,
+                            color: context.textPrimary,
                           ),
                         ),
                         onTap: () {

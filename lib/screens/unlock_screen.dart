@@ -121,7 +121,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
   Widget build(BuildContext context) {
     if (_isLoading || _authMethod == null) {
       return Scaffold(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(
           child: CircularProgressIndicator(
             color: AppColors.accent,
@@ -131,7 +131,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),

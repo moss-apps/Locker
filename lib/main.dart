@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'themes/app_theme.dart';
+import 'providers/theme_provider.dart';
 import 'services/auth_service.dart';
 import 'screens/auth_method_selection_screen.dart';
 import 'screens/unlock_screen.dart';
 
 void main() => runApp(const ProviderScope(child: LockerApp()));
 
-class LockerApp extends StatelessWidget {
+class LockerApp extends ConsumerWidget {
   const LockerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Locker',
       theme: AppTheme.lightTheme,
-      themeMode: AppTheme.themeMode,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       home: const AppInitializer(),
     );
   }
@@ -52,12 +56,15 @@ class _AppInitializerState extends State<AppInitializer> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: isDarkMode ? const Color(0xFF1A1A1D) : Colors.white,
         body: Center(
           child: CircularProgressIndicator(
-            color: Color(0xFF1976D2),
+            color:
+                isDarkMode ? const Color(0xFF5C9CE6) : const Color(0xFF1976D2),
           ),
         ),
       );

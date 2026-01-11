@@ -525,7 +525,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.lightBackgroundSecondary,
+                  color: context.backgroundSecondary,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -593,7 +593,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.lightBackgroundSecondary,
+                color: context.backgroundSecondary,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -907,7 +907,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
         bottom: MediaQuery.of(context).padding.bottom + 12,
       ),
       decoration: BoxDecoration(
-        color: AppColors.lightBackground,
+        color: context.backgroundColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),

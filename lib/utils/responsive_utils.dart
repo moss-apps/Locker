@@ -161,16 +161,11 @@ class ResponsiveBuilder extends StatelessWidget {
 /// A responsive grid delegate that automatically adjusts column count
 class ResponsiveGridDelegate extends SliverGridDelegateWithFixedCrossAxisCount {
   ResponsiveGridDelegate({
-    required int crossAxisCount,
-    double mainAxisSpacing = 4,
-    double crossAxisSpacing = 4,
-    double childAspectRatio = 1,
-  }) : super(
-          crossAxisCount: crossAxisCount,
-          mainAxisSpacing: mainAxisSpacing,
-          crossAxisSpacing: crossAxisSpacing,
-          childAspectRatio: childAspectRatio,
-        );
+    required super.crossAxisCount,
+    super.mainAxisSpacing = 4,
+    super.crossAxisSpacing = 4,
+    super.childAspectRatio,
+  });
 
   /// Create a responsive grid delegate based on context
   factory ResponsiveGridDelegate.responsive(

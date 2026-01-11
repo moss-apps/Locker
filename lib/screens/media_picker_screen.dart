@@ -193,9 +193,9 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.close, color: AppColors.lightTextPrimary),
@@ -235,7 +235,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
         widget.title,
         style: TextStyle(
           fontFamily: 'ProductSans',
-          color: AppColors.lightTextPrimary,
+          color: context.textPrimary,
           fontWeight: FontWeight.w600,
         ),
       );
@@ -257,7 +257,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
               _currentAlbum?.name ?? widget.title,
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
                 fontWeight: FontWeight.w600,
                 fontSize: 18,
               ),
@@ -293,7 +293,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
           Icon(
             Icons.photo_library_outlined,
             size: 64,
-            color: AppColors.lightTextTertiary,
+            color: context.textTertiary,
           ),
           const SizedBox(height: 16),
           Text(
@@ -301,7 +301,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
             style: TextStyle(
               fontFamily: 'ProductSans',
               fontSize: 18,
-              color: AppColors.lightTextSecondary,
+              color: context.textSecondary,
             ),
           ),
         ],
@@ -355,12 +355,12 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
               // Handle errors gracefully
               if (snapshot.hasError) {
                 return Container(
-                  color: AppColors.lightBackgroundSecondary,
+                  color: context.backgroundSecondary,
                   child: Icon(
                     asset.type == AssetType.video
                         ? Icons.videocam
                         : Icons.image,
-                    color: AppColors.lightTextTertiary,
+                    color: context.textTertiary,
                   ),
                 );
               }
@@ -376,12 +376,12 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
                     errorBuilder: (context, error, stackTrace) {
                       // Handle image decode errors
                       return Container(
-                        color: AppColors.lightBackgroundSecondary,
+                        color: context.backgroundSecondary,
                         child: Icon(
                           asset.type == AssetType.video
                               ? Icons.videocam
                               : Icons.image,
-                          color: AppColors.lightTextTertiary,
+                          color: context.textTertiary,
                         ),
                       );
                     },
@@ -389,12 +389,12 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
                 } catch (e) {
                   // Fallback for any other errors
                   return Container(
-                    color: AppColors.lightBackgroundSecondary,
+                    color: context.backgroundSecondary,
                     child: Icon(
                       asset.type == AssetType.video
                           ? Icons.videocam
                           : Icons.image,
-                      color: AppColors.lightTextTertiary,
+                      color: context.textTertiary,
                     ),
                   );
                 }
@@ -402,7 +402,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
 
               // Loading state
               return Container(
-                color: AppColors.lightBackgroundSecondary,
+                color: context.backgroundSecondary,
                 child: Center(
                   child: SizedBox(
                     width: 20,
@@ -500,7 +500,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
         bottom: MediaQuery.of(context).padding.bottom + 12,
       ),
       decoration: BoxDecoration(
-        color: AppColors.lightBackground,
+        color: context.backgroundColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -518,7 +518,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
                 fontFamily: 'ProductSans',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
               ),
             ),
           ),

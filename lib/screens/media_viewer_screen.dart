@@ -209,7 +209,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(20),
@@ -222,7 +222,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
                 fontFamily: 'ProductSans',
               ),
             ),
@@ -231,7 +231,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               'Duration per slide',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -327,7 +327,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(20),
@@ -340,7 +340,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
                 fontFamily: 'ProductSans',
               ),
             ),
@@ -368,7 +368,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                       '${speed}x',
                       style: TextStyle(
                         fontFamily: 'ProductSans',
-                        color: AppColors.lightTextPrimary,
+                        color: context.textPrimary,
                       ),
                     ),
                   );
@@ -416,7 +416,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
             label,
             style: TextStyle(
               fontSize: 16,
-              color: AppColors.lightTextPrimary,
+              color: context.textPrimary,
               fontFamily: 'ProductSans',
             ),
           ),
@@ -453,7 +453,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(20),
@@ -466,7 +466,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
                 fontFamily: 'ProductSans',
               ),
             ),
@@ -498,7 +498,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               label,
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextTertiary,
+                color: context.textTertiary,
               ),
             ),
           ),
@@ -507,7 +507,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               value,
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
               ),
             ),
           ),
@@ -522,7 +522,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -533,7 +533,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.lightBorder,
+                color: context.borderColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -547,7 +547,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.lightTextPrimary,
+                      color: context.textPrimary,
                       fontFamily: 'ProductSans',
                     ),
                   ),
@@ -620,7 +620,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -675,7 +675,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -1279,19 +1279,19 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text(
           'Delete File',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
         content: Text(
           'Are you sure you want to delete "${file.originalName}"?',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextSecondary,
+            color: context.textSecondary,
           ),
         ),
         actions: [
@@ -1301,7 +1301,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               'Cancel',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
           ),

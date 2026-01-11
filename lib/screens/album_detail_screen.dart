@@ -33,7 +33,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final filesAsync = ref.watch(filesInAlbumProvider(widget.albumId));
 
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(albumAsync),
       body: filesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -42,7 +42,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
             'Error loading files',
             style: TextStyle(
               fontFamily: 'ProductSans',
-              color: AppColors.lightTextSecondary,
+              color: context.textSecondary,
             ),
           ),
         ),
@@ -97,7 +97,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     }
 
     return AppBar(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       foregroundColor: AppColors.lightTextPrimary,
       elevation: 0,
       title: albumAsync.when(
@@ -199,7 +199,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: AppColors.lightBackgroundSecondary,
+              color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
                   ? Border.all(color: AppColors.accent, width: 3)
@@ -359,13 +359,13 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: AppColors.lightBackgroundSecondary,
+              color: context.backgroundSecondary,
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.folder_open_outlined,
               size: 64,
-              color: AppColors.lightTextTertiary,
+              color: context.textTertiary,
             ),
           ),
           const SizedBox(height: 24),
@@ -374,7 +374,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: AppColors.lightTextPrimary,
+              color: context.textPrimary,
               fontFamily: 'ProductSans',
             ),
           ),
@@ -383,7 +383,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
             'Add files from your vault',
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.lightTextSecondary,
+              color: context.textSecondary,
               fontFamily: 'ProductSans',
             ),
           ),
@@ -471,7 +471,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -482,7 +482,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.lightBorder,
+                color: context.borderColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -513,7 +513,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.lightTextPrimary,
+                                  color: context.textPrimary,
                                   fontFamily: 'ProductSans'),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -523,7 +523,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                               '${file.extension.toUpperCase()} • ${file.formattedSize}',
                               style: TextStyle(
                                   fontSize: 13,
-                                  color: AppColors.lightTextSecondary,
+                                  color: context.textSecondary,
                                   fontFamily: 'ProductSans'),
                             ),
                           ],
@@ -535,7 +535,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                   Text('Preview not available',
                       style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.lightTextSecondary,
+                          color: context.textSecondary,
                           fontFamily: 'ProductSans')),
                   const SizedBox(height: 12),
                   ListTile(
@@ -604,7 +604,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -659,7 +659,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -700,19 +700,19 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text(
           'Remove from Album',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
         content: Text(
           'Remove ${_selectedFiles.length} file(s) from this album? The files will remain in your vault.',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextSecondary,
+            color: context.textSecondary,
           ),
         ),
         actions: [
@@ -722,7 +722,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               'Cancel',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
           ),
@@ -766,19 +766,19 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text(
           'Delete Files',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
         content: Text(
           'Are you sure you want to delete ${_selectedFiles.length} file(s)? This action cannot be undone.',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextSecondary,
+            color: context.textSecondary,
           ),
         ),
         actions: [
@@ -788,7 +788,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               'Cancel',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
           ),
@@ -833,7 +833,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -844,7 +844,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.lightBorder,
+                color: context.borderColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -858,7 +858,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.lightTextPrimary,
+                      color: context.textPrimary,
                       fontFamily: 'ProductSans',
                     ),
                   ),
@@ -876,7 +876,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                           option.displayName,
                           style: TextStyle(
                             fontFamily: 'ProductSans',
-                            color: AppColors.lightTextPrimary,
+                            color: context.textPrimary,
                           ),
                         ),
                         onTap: () {
@@ -939,7 +939,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
-        color: AppColors.lightBackground,
+        color: context.backgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -950,7 +950,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.lightBorder,
+              color: context.borderColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -968,7 +968,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.lightTextPrimary,
+                          color: context.textPrimary,
                           fontFamily: 'ProductSans',
                         ),
                       ),
@@ -977,7 +977,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
                         'Select files from your vault',
                         style: TextStyle(
                           fontSize: 14,
-                          color: AppColors.lightTextSecondary,
+                          color: context.textSecondary,
                           fontFamily: 'ProductSans',
                         ),
                       ),
@@ -1020,7 +1020,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
                   'Failed to load files',
                   style: TextStyle(
                     fontFamily: 'ProductSans',
-                    color: AppColors.lightTextSecondary,
+                    color: context.textSecondary,
                   ),
                 ),
               ),
@@ -1042,14 +1042,14 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
                         Icon(
                           Icons.check_circle_outline,
                           size: 64,
-                          color: AppColors.lightTextTertiary,
+                          color: context.textTertiary,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'All files are already in this album',
                           style: TextStyle(
                             fontFamily: 'ProductSans',
-                            color: AppColors.lightTextSecondary,
+                            color: context.textSecondary,
                           ),
                         ),
                       ],
@@ -1090,7 +1090,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: AppColors.lightBackgroundSecondary,
+              color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
                   ? Border.all(color: AppColors.accent, width: 3)
