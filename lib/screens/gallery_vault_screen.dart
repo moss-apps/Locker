@@ -449,8 +449,16 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               mainAxisSpacing: 4,
               childAspectRatio: 1,
             ),
+            // Performance optimizations
+            addAutomaticKeepAlives:
+                false, // Reduces memory overhead for off-screen items
+            addRepaintBoundaries:
+                true, // Isolates paint operations for each item
             itemCount: files.length,
-            itemBuilder: (context, index) => _buildFileItem(files[index]),
+            itemBuilder: (context, index) => RepaintBoundary(
+              key: ValueKey(files[index].id),
+              child: _buildFileItem(files[index]),
+            ),
           ),
         );
       },
@@ -510,7 +518,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 ),
                 child: isSelected
                     ? const Icon(Icons.check, size: 16, color: Colors.white)
-                    : null,
+                    : const SizedBox.shrink(),
               ),
             ),
           // Favorite indicator
@@ -659,18 +667,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 return child;
               }
               // Show placeholder while loading
-              return Container(
-                color: Colors.grey.shade200,
-                child: const Center(
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  ),
-                ),
-              );
+              return const _ImageLoadingPlaceholder();
             },
             errorBuilder: (context, error, stackTrace) {
               // Log error for debugging but show placeholder gracefully
@@ -3061,6 +3058,28 @@ class _ImportOptionTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Const-friendly placeholder widget for loading images
+/// Extracted as a separate class to enable const constructor usage
+class _ImageLoadingPlaceholder extends StatelessWidget {
+  const _ImageLoadingPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.grey.shade200,
+      child: const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+          ),
         ),
       ),
     );
