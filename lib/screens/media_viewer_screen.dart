@@ -338,123 +338,6 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     _seekVideo(newPos < Duration.zero ? Duration.zero : newPos);
   }
 
-  void _showVideoSettings() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: context.backgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Playback Settings',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: context.textPrimary,
-                fontFamily: 'ProductSans',
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildSettingRow(
-              'Playback Speed',
-              DropdownButton<double>(
-                value: _playbackSpeed,
-                dropdownColor: AppColors.lightSurface,
-                underline: Container(),
-                icon: const Icon(Icons.speed, color: AppColors.accent),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _playbackSpeed = value;
-                      _videoController?.setPlaybackSpeed(value);
-                    });
-                    Navigator.pop(context);
-                  }
-                },
-                items: [0.5, 1.0, 1.5, 2.0].map((speed) {
-                  return DropdownMenuItem(
-                    value: speed,
-                    child: Text(
-                      '${speed}x',
-                      style: TextStyle(
-                        fontFamily: 'ProductSans',
-                        color: context.textPrimary,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const Divider(),
-            _buildSwitchSetting(
-              'Loop Video',
-              _isLooping,
-              (value) {
-                setState(() {
-                  _isLooping = value;
-                  _videoController?.setLooping(value);
-                });
-                Navigator.pop(context);
-              },
-            ),
-            const Divider(),
-            _buildSwitchSetting(
-              'Mute Audio',
-              _isMuted,
-              (value) {
-                setState(() {
-                  _isMuted = value;
-                  _videoController?.setVolume(value ? 0.0 : 1.0);
-                });
-                Navigator.pop(context);
-              },
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettingRow(String label, Widget child) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              color: context.textPrimary,
-              fontFamily: 'ProductSans',
-            ),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSwitchSetting(
-      String label, bool value, Function(bool) onChanged) {
-    return _buildSettingRow(
-      label,
-      Switch(
-        value: value,
-        onChanged: onChanged,
-        activeThumbColor: AppColors.accent,
-      ),
-    );
-  }
-
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final minutes = twoDigits(duration.inMinutes.remainder(60));
@@ -734,6 +617,9 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
+        // Use translucent behavior so child widgets (like video control buttons)
+        // can still receive tap events
+        behavior: HitTestBehavior.translucent,
         onTap: _toggleControls,
         child: Stack(
           children: [
@@ -937,37 +823,42 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
             VideoPlayer(_videoController!),
             // Main Controls Overlay
             if (_showControls)
-              Container(
-                color: Colors.black26,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.replay_10, size: 36),
-                      color: Colors.white,
-                      onPressed: _skipBackward,
-                    ),
-                    GestureDetector(
-                      onTap: _toggleVideoPlayback,
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _isVideoPlaying ? Icons.pause : Icons.play_arrow,
-                          color: Colors.white,
-                          size: 48,
+              // Absorb taps on the controls area to prevent toggling controls
+              GestureDetector(
+                onTap: () {}, // Absorb tap to prevent propagation
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  color: Colors.black26,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.replay_10, size: 36),
+                        color: Colors.white,
+                        onPressed: _skipBackward,
+                      ),
+                      GestureDetector(
+                        onTap: _toggleVideoPlayback,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _isVideoPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 48,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.forward_10, size: 36),
-                      color: Colors.white,
-                      onPressed: _skipForward,
-                    ),
-                  ],
+                      IconButton(
+                        icon: const Icon(Icons.forward_10, size: 36),
+                        color: Colors.white,
+                        onPressed: _skipForward,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             // Tap area needed to toggle controls
@@ -1098,122 +989,130 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       bottom: 0,
       left: 0,
       right: 0,
-      child: Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).padding.bottom + 16,
-          left: 16,
-          right: 16,
-          top: 20,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [
-              Colors.black87,
-              Colors.transparent,
+      // Absorb taps to prevent parent GestureDetector from toggling controls
+      child: GestureDetector(
+        onTap: () {}, // Absorb tap to prevent propagation
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+            left: 16,
+            right: 16,
+            top: 20,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [
+                Colors.black87,
+                Colors.transparent,
+              ],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Progress Bar and Time
+              Row(
+                children: [
+                  Text(
+                    _formatDuration(position),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'ProductSans',
+                      fontSize: 12,
+                    ),
+                  ),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        thumbColor: AppColors.accent,
+                        activeTrackColor: AppColors.accent,
+                        inactiveTrackColor: Colors.white24,
+                        thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 6.0),
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 14.0),
+                      ),
+                      child: Slider(
+                        value: position.inMilliseconds
+                            .toDouble()
+                            .clamp(0.0, duration.inMilliseconds.toDouble()),
+                        min: 0.0,
+                        max: duration.inMilliseconds.toDouble(),
+                        onChanged: (value) {
+                          _seekVideo(Duration(milliseconds: value.toInt()));
+                        },
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _formatDuration(duration),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'ProductSans',
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Controls
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _isMuted ? Icons.volume_off : Icons.volume_up,
+                      color: Colors.white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isMuted = !_isMuted;
+                        _videoController?.setVolume(_isMuted ? 0.0 : 1.0);
+                      });
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _isVideoPlaying
+                          ? Icons.pause_circle_filled
+                          : Icons.play_circle_filled,
+                      color: Colors.white,
+                      size: 48,
+                    ),
+                    onPressed: _toggleVideoPlayback,
+                  ),
+                  IconButton(
+                    icon: Text(
+                      '${_playbackSpeed}x',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        fontFamily: 'ProductSans',
+                      ),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        if (_playbackSpeed == 1.0) {
+                          _playbackSpeed = 1.5;
+                        } else if (_playbackSpeed == 1.5) {
+                          _playbackSpeed = 2.0;
+                        } else if (_playbackSpeed == 2.0) {
+                          _playbackSpeed = 0.5;
+                        } else {
+                          _playbackSpeed = 1.0;
+                        }
+                        _videoController?.setPlaybackSpeed(_playbackSpeed);
+                      });
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Progress Bar and Time
-            Row(
-              children: [
-                Text(
-                  _formatDuration(position),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'ProductSans',
-                    fontSize: 12,
-                  ),
-                ),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      thumbColor: AppColors.accent,
-                      activeTrackColor: AppColors.accent,
-                      inactiveTrackColor: Colors.white24,
-                      thumbShape:
-                          const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                      overlayShape:
-                          const RoundSliderOverlayShape(overlayRadius: 14.0),
-                    ),
-                    child: Slider(
-                      value: position.inMilliseconds
-                          .toDouble()
-                          .clamp(0.0, duration.inMilliseconds.toDouble()),
-                      min: 0.0,
-                      max: duration.inMilliseconds.toDouble(),
-                      onChanged: (value) {
-                        _seekVideo(Duration(milliseconds: value.toInt()));
-                      },
-                    ),
-                  ),
-                ),
-                Text(
-                  _formatDuration(duration),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'ProductSans',
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // Controls
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  icon: Icon(
-                    _isLooping ? Icons.repeat_one : Icons.repeat,
-                    color: _isLooping ? AppColors.accent : Colors.white70,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isLooping = !_isLooping;
-                      _videoController?.setLooping(_isLooping);
-                    });
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.skip_previous, color: Colors.white),
-                  onPressed: _currentIndex > 0
-                      ? () => _pageController.previousPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          )
-                      : null,
-                ),
-                IconButton(
-                  icon: Icon(
-                    _isVideoPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_filled,
-                    color: Colors.white,
-                    size: 48,
-                  ),
-                  onPressed: _toggleVideoPlayback,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.skip_next, color: Colors.white),
-                  onPressed: _currentIndex < widget.files.length - 1
-                      ? () => _pageController.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          )
-                      : null,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings, color: Colors.white70),
-                  onPressed: _showVideoSettings,
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );
@@ -1224,69 +1123,74 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       bottom: 0,
       left: 0,
       right: 0,
-      child: Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).padding.bottom + 8,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [
-              Colors.black54,
-              Colors.transparent,
-            ],
+      // Absorb taps to prevent parent GestureDetector from toggling controls
+      child: GestureDetector(
+        onTap: () {}, // Absorb tap to prevent propagation
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom + 8,
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                // Previous
-                IconButton(
-                  icon: const Icon(Icons.skip_previous, color: Colors.white),
-                  onPressed: _currentIndex > 0
-                      ? () => _pageController.previousPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          )
-                      : null,
-                ),
-                // Slideshow (only for images)
-                if (widget.files.where((f) => f.isImage).length > 1)
-                  IconButton(
-                    icon: Icon(
-                      _isSlideshow ? Icons.stop : Icons.slideshow,
-                      color: Colors.white,
-                    ),
-                    onPressed: _showSlideshowSettings,
-                  ),
-                // Share/Export
-                IconButton(
-                  icon: const Icon(Icons.share, color: Colors.white),
-                  onPressed: () => _showExportOptions(file),
-                ),
-                // Delete
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.white),
-                  onPressed: () => _confirmDelete(file),
-                ),
-                // Next
-                IconButton(
-                  icon: const Icon(Icons.skip_next, color: Colors.white),
-                  onPressed: _currentIndex < widget.files.length - 1
-                      ? () => _pageController.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          )
-                      : null,
-                ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [
+                Colors.black54,
+                Colors.transparent,
               ],
             ),
-          ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Previous
+                  IconButton(
+                    icon: const Icon(Icons.skip_previous, color: Colors.white),
+                    onPressed: _currentIndex > 0
+                        ? () => _pageController.previousPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            )
+                        : null,
+                  ),
+                  // Slideshow (only for images)
+                  if (widget.files.where((f) => f.isImage).length > 1)
+                    IconButton(
+                      icon: Icon(
+                        _isSlideshow ? Icons.stop : Icons.slideshow,
+                        color: Colors.white,
+                      ),
+                      onPressed: _showSlideshowSettings,
+                    ),
+                  // Share/Export
+                  IconButton(
+                    icon: const Icon(Icons.share, color: Colors.white),
+                    onPressed: () => _showExportOptions(file),
+                  ),
+                  // Delete
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.white),
+                    onPressed: () => _confirmDelete(file),
+                  ),
+                  // Next
+                  IconButton(
+                    icon: const Icon(Icons.skip_next, color: Colors.white),
+                    onPressed: _currentIndex < widget.files.length - 1
+                        ? () => _pageController.nextPage(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            )
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
