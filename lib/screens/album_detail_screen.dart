@@ -9,6 +9,7 @@ import '../providers/vault_providers.dart';
 import '../services/auto_kill_service.dart';
 import '../themes/app_colors.dart';
 import '../utils/toast_utils.dart';
+import '../utils/responsive_utils.dart';
 import 'media_viewer_screen.dart';
 import 'document_viewer_screen.dart';
 
@@ -162,8 +163,11 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
       color: AppColors.accent,
       child: GridView.builder(
         padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+        gridDelegate: ResponsiveGridDelegate.responsive(
+          context,
+          compact: 3,
+          medium: 4,
+          expanded: 6,
           crossAxisSpacing: 4,
           mainAxisSpacing: 4,
           childAspectRatio: 1,
@@ -1055,8 +1059,11 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
 
                 return GridView.builder(
                   padding: const EdgeInsets.all(12),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
+                  gridDelegate: ResponsiveGridDelegate.responsive(
+                    context,
+                    compact: 3,
+                    medium: 4,
+                    expanded: 6,
                     crossAxisSpacing: 8,
                     mainAxisSpacing: 8,
                     childAspectRatio: 1,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../services/auto_kill_service.dart';
 import '../themes/app_colors.dart';
+import '../utils/responsive_utils.dart';
 
 /// A custom media picker that uses PhotoManager to directly access gallery assets.
 /// This allows proper deletion of original files from the gallery.
@@ -312,8 +313,11 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
     return GridView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.all(2),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
+      gridDelegate: ResponsiveGridDelegate.responsive(
+        context,
+        compact: 4,
+        medium: 5,
+        expanded: 6,
         crossAxisSpacing: 2,
         mainAxisSpacing: 2,
       ),

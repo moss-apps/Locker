@@ -6,6 +6,7 @@ import '../models/vaulted_file.dart';
 import '../providers/vault_providers.dart';
 import '../themes/app_colors.dart';
 import '../utils/toast_utils.dart';
+import '../utils/responsive_utils.dart';
 import 'album_detail_screen.dart';
 
 /// Screen for managing albums/folders
@@ -135,8 +136,11 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: ResponsiveGridDelegate.responsive(
+        context,
+        compact: 2,
+        medium: 3,
+        expanded: 4,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
         childAspectRatio: 1,
@@ -967,9 +971,11 @@ class _ChangeCoverSheetState extends ConsumerState<_ChangeCoverSheet> {
                     Expanded(
                       child: GridView.builder(
                         padding: const EdgeInsets.all(12),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
+                        gridDelegate: ResponsiveGridDelegate.responsive(
+                          context,
+                          compact: 3,
+                          medium: 4,
+                          expanded: 6,
                           crossAxisSpacing: 8,
                           mainAxisSpacing: 8,
                           childAspectRatio: 1,

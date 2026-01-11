@@ -11,6 +11,7 @@ import '../services/auto_kill_service.dart';
 import '../services/file_import_service.dart';
 import '../themes/app_colors.dart';
 import '../utils/toast_utils.dart';
+import '../utils/responsive_utils.dart';
 import '../widgets/office_conversion_confirm_dialog.dart';
 import 'albums_screen.dart';
 import 'favorites_screen.dart';
@@ -439,8 +440,11 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           color: AppColors.accent,
           child: GridView.builder(
             padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            gridDelegate: ResponsiveGridDelegate.responsive(
+              context,
+              compact: 3,
+              medium: 4,
+              expanded: 6,
               crossAxisSpacing: 4,
               mainAxisSpacing: 4,
               childAspectRatio: 1,
