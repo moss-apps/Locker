@@ -170,11 +170,11 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           },
         ),
         IconButton(
-          icon: Icon(Icons.sort, color: AppColors.lightTextPrimary),
+          icon: Icon(Icons.sort, color: context.textPrimary),
           onPressed: _showSortOptions,
         ),
         PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert, color: AppColors.lightTextPrimary),
+          icon: Icon(Icons.more_vert, color: context.textPrimary),
           onSelected: (value) {
             switch (value) {
               case 'albums':

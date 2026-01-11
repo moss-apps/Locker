@@ -165,7 +165,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.lightTextPrimary,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? AppColors.lightTextPrimary
+                      : AppColors.darkTextPrimary,
                   fontFamily: 'ProductSans',
                 ),
                 textAlign: TextAlign.center,
@@ -182,7 +184,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
                         : 'Use biometrics to unlock',
                 style: TextStyle(
                   fontSize: 16,
-                  color: AppColors.lightTextSecondary,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? AppColors.lightTextSecondary
+                      : AppColors.darkTextSecondary,
                   fontFamily: 'ProductSans',
                 ),
                 textAlign: TextAlign.center,
