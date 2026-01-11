@@ -75,7 +75,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.lightTextPrimary),
@@ -101,7 +101,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
             color: AppColors.lightTextPrimary,
           ),
         ),
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
       body: _isLoading

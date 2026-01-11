@@ -62,10 +62,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
   }
 
   void _handlePinChanged() {
+    // Only trigger rebuild if there's an error to clear
     if (_errorMessage != null) {
-      setState(() {
-        _errorMessage = null;
-      });
+      setState(() => _errorMessage = null);
     }
   }
 
@@ -73,12 +72,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
     final password = _passwordController.text;
 
     if (password.isEmpty) {
-      setState(() {
-        _errorMessage = 'Please enter your password';
-      });
+      setState(() => _errorMessage = 'Please enter your password');
       return;
     }
 
+    // Batch state update for loading state
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -93,11 +91,12 @@ class _UnlockScreenState extends State<UnlockScreen> {
         ),
       );
     } else if (mounted) {
+      // Batch state update for error state
       setState(() {
         _isLoading = false;
         _errorMessage = 'Incorrect password. Please try again.';
-        _passwordController.clear();
       });
+      _passwordController.clear();
     }
   }
 
@@ -121,7 +120,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
   Widget build(BuildContext context) {
     if (_isLoading || _authMethod == null) {
       return Scaffold(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(
           child: CircularProgressIndicator(
             color: AppColors.accent,
@@ -131,7 +130,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -165,7 +164,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.lightTextPrimary,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? AppColors.lightTextPrimary
+                      : AppColors.darkTextPrimary,
                   fontFamily: 'ProductSans',
                 ),
                 textAlign: TextAlign.center,
@@ -182,7 +183,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
                         : 'Use biometrics to unlock',
                 style: TextStyle(
                   fontSize: 16,
-                  color: AppColors.lightTextSecondary,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? AppColors.lightTextSecondary
+                      : AppColors.darkTextSecondary,
                   fontFamily: 'ProductSans',
                 ),
                 textAlign: TextAlign.center,
@@ -227,9 +230,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                       ),
                       onChanged: (_) {
                         if (_errorMessage != null) {
-                          setState(() {
-                            _errorMessage = null;
-                          });
+                          setState(() => _errorMessage = null);
                         }
                       },
                       onSubmitted: (_) => _handlePasswordAuth(),

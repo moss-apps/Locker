@@ -2,10 +2,50 @@ import 'package:flutter/material.dart';
 
 /// App Color Palette
 /// Contains all color definitions used throughout the Locker app
+/// Follows golden design rules with eye-friendly colors
 class AppColors {
   AppColors._(); // Private constructor to prevent instantiation
 
-  // ===== PRIMARY COLORS =====
+  // ===== DARK MODE COLORS =====
+  // Eye-friendly dark theme with reduced blue light and warm undertones
+
+  /// Dark mode background - Soft charcoal with warm undertone (#1A1A1D)
+  static const Color darkBackground = Color(0xFF1A1A1D);
+
+  /// Dark mode secondary background (#242428)
+  static const Color darkBackgroundSecondary = Color(0xFF242428);
+
+  /// Dark mode surface for cards/containers (#2D2D32)
+  static const Color darkSurface = Color(0xFF2D2D32);
+
+  /// Dark mode elevated surface (#38383E)
+  static const Color darkSurfaceElevated = Color(0xFF38383E);
+
+  /// Dark mode text primary - Warm off-white (#E8E6E3)
+  static const Color darkTextPrimary = Color(0xFFE8E6E3);
+
+  /// Dark mode text secondary (#B8B6B3)
+  static const Color darkTextSecondary = Color(0xFFB8B6B3);
+
+  /// Dark mode text tertiary (#8A8886)
+  static const Color darkTextTertiary = Color(0xFF8A8886);
+
+  /// Dark mode text disabled (#5A5856)
+  static const Color darkTextDisabled = Color(0xFF5A5856);
+
+  /// Dark mode divider (#3D3D42)
+  static const Color darkDivider = Color(0xFF3D3D42);
+
+  /// Dark mode border (#4A4A50)
+  static const Color darkBorder = Color(0xFF4A4A50);
+
+  /// Dark mode accent - Soft blue (#5C9CE6)
+  static const Color darkAccent = Color(0xFF5C9CE6);
+
+  /// Dark mode accent light (#7AB3F0)
+  static const Color darkAccentLight = Color(0xFF7AB3F0);
+
+  // ===== LEGACY PRIMARY COLORS (for backward compatibility) =====
 
   /// Main background color - Dark Gray (#121212)
   static const Color primaryBackground = Color(0xFF121212);
@@ -46,17 +86,29 @@ class AppColors {
 
   // ===== ACCENT COLORS =====
 
-  /// Success color
+  /// Success color - Soft green
   static const Color success = Color(0xFF4CAF50);
+
+  /// Success color for dark mode - Softer green
+  static const Color darkSuccess = Color(0xFF66BB6A);
 
   /// Error color
   static const Color error = Color(0xFFE53935);
 
+  /// Error color for dark mode - Softer red
+  static const Color darkError = Color(0xFFEF5350);
+
   /// Warning color
   static const Color warning = Color(0xFFFF9800);
 
+  /// Warning color for dark mode
+  static const Color darkWarning = Color(0xFFFFB74D);
+
   /// Info color
   static const Color info = Color(0xFF2196F3);
+
+  /// Info color for dark mode
+  static const Color darkInfo = Color(0xFF64B5F6);
 
   // ===== UTILITY COLORS =====
 
@@ -104,6 +156,58 @@ class AppColors {
   /// Light theme accent light
   static const Color accentLight = Color(0xFF42A5F5);
 
+  // ===== ADAPTIVE COLOR GETTERS =====
+  // These return the appropriate color based on theme brightness
+
+  /// Get background color based on brightness
+  static Color background(Brightness brightness) {
+    return brightness == Brightness.dark ? darkBackground : lightBackground;
+  }
+
+  /// Get secondary background color based on brightness
+  static Color backgroundSecondary(Brightness brightness) {
+    return brightness == Brightness.dark
+        ? darkBackgroundSecondary
+        : lightBackgroundSecondary;
+  }
+
+  /// Get surface color based on brightness
+  static Color surfaceColor(Brightness brightness) {
+    return brightness == Brightness.dark ? darkSurface : lightSurface;
+  }
+
+  /// Get primary text color based on brightness
+  static Color textPrimaryColor(Brightness brightness) {
+    return brightness == Brightness.dark ? darkTextPrimary : lightTextPrimary;
+  }
+
+  /// Get secondary text color based on brightness
+  static Color textSecondaryColor(Brightness brightness) {
+    return brightness == Brightness.dark
+        ? darkTextSecondary
+        : lightTextSecondary;
+  }
+
+  /// Get tertiary text color based on brightness
+  static Color textTertiaryColor(Brightness brightness) {
+    return brightness == Brightness.dark ? darkTextTertiary : lightTextTertiary;
+  }
+
+  /// Get divider color based on brightness
+  static Color dividerColor(Brightness brightness) {
+    return brightness == Brightness.dark ? darkDivider : lightDivider;
+  }
+
+  /// Get border color based on brightness
+  static Color borderColor(Brightness brightness) {
+    return brightness == Brightness.dark ? darkBorder : lightBorder;
+  }
+
+  /// Get accent color based on brightness
+  static Color accentColor(Brightness brightness) {
+    return brightness == Brightness.dark ? darkAccent : accent;
+  }
+
   // ===== GRADIENTS =====
 
   /// Primary background gradient
@@ -113,6 +217,16 @@ class AppColors {
     colors: [
       Color(0xFF121212),
       Color(0xFF1E1E1E),
+    ],
+  );
+
+  /// Dark mode background gradient
+  static const LinearGradient darkBackgroundGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFF1A1A1D),
+      Color(0xFF242428),
     ],
   );
 
@@ -164,31 +278,73 @@ class AppColors {
 
   // ===== COLOR SCHEMES =====
 
-  /// Light color scheme (for future use)
+  /// Light color scheme
   static const ColorScheme lightColorScheme = ColorScheme.light(
-    primary: Color(0xFF121212),
-    primaryContainer: Color(0xFF262626),
-    secondary: Color(0xFFF5F5F5),
+    primary: Color(0xFF1976D2),
+    primaryContainer: Color(0xFFBBDEFB),
+    secondary: Color(0xFF424242),
     secondaryContainer: Color(0xFFE0E0E0),
     surface: Color(0xFFFFFFFF),
     error: Color(0xFFE53935),
-    onPrimary: Color(0xFFF5F5F5),
-    onSecondary: Color(0xFF121212),
-    onSurface: Color(0xFF121212),
+    onPrimary: Color(0xFFFFFFFF),
+    onSecondary: Color(0xFFFFFFFF),
+    onSurface: Color(0xFF212121),
     onError: Color(0xFFFFFFFF),
   );
 
-  /// Dark color scheme (main theme)
+  /// Dark color scheme - Eye-friendly with warm undertones
   static const ColorScheme darkColorScheme = ColorScheme.dark(
-    primary: Color(0xFFF5F5F5),
-    primaryContainer: Color(0xFF262626),
-    secondary: Color(0xFF121212),
-    secondaryContainer: Color(0xFF1E1E1E),
-    surface: Color(0xFF262626),
-    error: Color(0xFFE53935),
-    onPrimary: Color(0xFF121212),
-    onSecondary: Color(0xFFF5F5F5),
-    onSurface: Color(0xFFF5F5F5),
-    onError: Color(0xFFFFFFFF),
+    primary: Color(0xFF5C9CE6), // Soft blue accent
+    primaryContainer: Color(0xFF2D4A6B),
+    secondary: Color(0xFFE8E6E3), // Warm off-white
+    secondaryContainer: Color(0xFF38383E),
+    surface: Color(0xFF2D2D32),
+    error: Color(0xFFEF5350), // Softer red
+    onPrimary: Color(0xFF1A1A1D),
+    onSecondary: Color(0xFF1A1A1D),
+    onSurface: Color(0xFFE8E6E3),
+    onError: Color(0xFF1A1A1D),
   );
+}
+
+/// Extension on BuildContext for easy access to adaptive theme colors
+extension AppColorsExtension on BuildContext {
+  /// Returns true if the current theme is dark mode
+  bool get isDarkMode => Theme.of(this).brightness == Brightness.dark;
+
+  /// Primary text color (adapts to theme)
+  Color get textPrimary =>
+      isDarkMode ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+
+  /// Secondary text color (adapts to theme)
+  Color get textSecondary =>
+      isDarkMode ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+
+  /// Tertiary text color (adapts to theme)
+  Color get textTertiary =>
+      isDarkMode ? AppColors.darkTextTertiary : AppColors.lightTextTertiary;
+
+  /// Background color (adapts to theme)
+  Color get backgroundColor =>
+      isDarkMode ? AppColors.darkBackground : AppColors.lightBackground;
+
+  /// Secondary background color (adapts to theme)
+  Color get backgroundSecondary => isDarkMode
+      ? AppColors.darkBackgroundSecondary
+      : AppColors.lightBackgroundSecondary;
+
+  /// Surface color for cards (adapts to theme)
+  Color get surfaceColor =>
+      isDarkMode ? AppColors.darkSurface : AppColors.lightSurface;
+
+  /// Border color (adapts to theme)
+  Color get borderColor =>
+      isDarkMode ? AppColors.darkBorder : AppColors.lightBorder;
+
+  /// Divider color (adapts to theme)
+  Color get dividerColor =>
+      isDarkMode ? AppColors.darkDivider : AppColors.lightDivider;
+
+  /// Accent color (adapts to theme)
+  Color get accentColor => isDarkMode ? AppColors.darkAccent : AppColors.accent;
 }

@@ -237,7 +237,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -294,7 +294,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -335,7 +335,7 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(20),
@@ -400,9 +400,9 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: AppColors.lightTextPrimary,
         elevation: 0,
         title: Column(

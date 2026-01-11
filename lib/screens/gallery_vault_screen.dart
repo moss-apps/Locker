@@ -11,6 +11,8 @@ import '../services/auto_kill_service.dart';
 import '../services/file_import_service.dart';
 import '../themes/app_colors.dart';
 import '../utils/toast_utils.dart';
+import '../utils/responsive_utils.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/office_conversion_confirm_dialog.dart';
 import 'albums_screen.dart';
 import 'favorites_screen.dart';
@@ -68,7 +70,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     final selectedFiles = ref.watch(selectedFilesProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _buildAppBar(isSelectionMode, selectedFiles),
       body: Column(
         children: [
@@ -145,17 +147,17 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         'Gallery Vault',
         style: TextStyle(
           fontFamily: 'ProductSans',
-          color: AppColors.lightTextPrimary,
+          color: context.textPrimary,
           fontWeight: FontWeight.w600,
         ),
       ),
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       elevation: 0,
       actions: [
         IconButton(
           icon: Icon(
             _isSearching ? Icons.close : Icons.search,
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
           onPressed: () {
             setState(() {
@@ -168,11 +170,11 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           },
         ),
         IconButton(
-          icon: Icon(Icons.sort, color: AppColors.lightTextPrimary),
+          icon: Icon(Icons.sort, color: context.textPrimary),
           onPressed: _showSortOptions,
         ),
         PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert, color: AppColors.lightTextPrimary),
+          icon: Icon(Icons.more_vert, color: context.textPrimary),
           onSelected: (value) {
             switch (value) {
               case 'albums':
@@ -229,17 +231,16 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: AppColors.lightBackgroundSecondary,
+      color: context.backgroundSecondary,
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
           hintText: 'Search files...',
           hintStyle: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextTertiary,
+            color: context.textTertiary,
           ),
-          prefixIcon:
-              Icon(Icons.search, color: AppColors.lightTextTertiary, size: 20),
+          prefixIcon: Icon(Icons.search, color: context.textTertiary, size: 20),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -251,7 +252,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         ),
         style: TextStyle(
           fontFamily: 'ProductSans',
-          color: AppColors.lightTextPrimary,
+          color: context.textPrimary,
         ),
         onChanged: (value) {
           ref.read(searchQueryProvider.notifier).state = value;
@@ -283,7 +284,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                   : 'Importing...',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
               ),
             ),
           ),
@@ -297,7 +298,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.lightBackground,
+        color: context.backgroundColor,
         border: Border(
           bottom: BorderSide(color: AppColors.lightDivider, width: 1),
         ),
@@ -387,7 +388,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               'Failed to load files',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
             const SizedBox(height: 16),
@@ -439,14 +440,25 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           color: AppColors.accent,
           child: GridView.builder(
             padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
+            gridDelegate: ResponsiveGridDelegate.responsive(
+              context,
+              compact: 3,
+              medium: 4,
+              expanded: 6,
               crossAxisSpacing: 4,
               mainAxisSpacing: 4,
               childAspectRatio: 1,
             ),
+            // Performance optimizations
+            addAutomaticKeepAlives:
+                false, // Reduces memory overhead for off-screen items
+            addRepaintBoundaries:
+                true, // Isolates paint operations for each item
             itemCount: files.length,
-            itemBuilder: (context, index) => _buildFileItem(files[index]),
+            itemBuilder: (context, index) => RepaintBoundary(
+              key: ValueKey(files[index].id),
+              child: _buildFileItem(files[index]),
+            ),
           ),
         );
       },
@@ -476,7 +488,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         children: [
           Container(
             decoration: BoxDecoration(
-              color: AppColors.lightBackgroundSecondary,
+              color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
                   ? Border.all(color: AppColors.accent, width: 3)
@@ -506,7 +518,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 ),
                 child: isSelected
                     ? const Icon(Icons.check, size: 16, color: Colors.white)
-                    : null,
+                    : const SizedBox.shrink(),
               ),
             ),
           // Favorite indicator
@@ -655,18 +667,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 return child;
               }
               // Show placeholder while loading
-              return Container(
-                color: Colors.grey.shade200,
-                child: const Center(
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  ),
-                ),
-              );
+              return const _ImageLoadingPlaceholder();
             },
             errorBuilder: (context, error, stackTrace) {
               // Log error for debugging but show placeholder gracefully
@@ -859,7 +860,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -871,7 +872,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.lightBorder,
+                color: context.borderColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -906,7 +907,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.lightTextPrimary,
+                                color: context.textPrimary,
                                 fontFamily: 'ProductSans',
                               ),
                               maxLines: 2,
@@ -917,7 +918,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                               '${file.extension.toUpperCase()} • ${file.formattedSize}',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: AppColors.lightTextSecondary,
+                                color: context.textSecondary,
                                 fontFamily: 'ProductSans',
                               ),
                             ),
@@ -931,7 +932,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                     'Preview not available',
                     style: TextStyle(
                       fontSize: 13,
-                      color: AppColors.lightTextSecondary,
+                      color: context.textSecondary,
                       fontFamily: 'ProductSans',
                     ),
                   ),
@@ -962,7 +963,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                       style: TextStyle(
                         fontFamily: 'ProductSans',
                         fontSize: 12,
-                        color: AppColors.lightTextSecondary,
+                        color: context.textSecondary,
                       ),
                     ),
                     contentPadding: EdgeInsets.zero,
@@ -998,7 +999,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                       style: TextStyle(
                         fontFamily: 'ProductSans',
                         fontSize: 12,
-                        color: AppColors.lightTextSecondary,
+                        color: context.textSecondary,
                       ),
                     ),
                     contentPadding: EdgeInsets.zero,
@@ -1019,7 +1020,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                       ),
                       child: Icon(
                         Icons.info_outline,
-                        color: AppColors.lightTextSecondary,
+                        color: context.textSecondary,
                       ),
                     ),
                     title: const Text(
@@ -1034,7 +1035,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                       style: TextStyle(
                         fontFamily: 'ProductSans',
                         fontSize: 12,
-                        color: AppColors.lightTextSecondary,
+                        color: context.textSecondary,
                       ),
                     ),
                     contentPadding: EdgeInsets.zero,
@@ -1061,7 +1062,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -1125,7 +1126,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: AppColors.lightBackground,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           content: Row(
             children: [
               CircularProgressIndicator(
@@ -1170,12 +1171,12 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text(
           'File Info',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
         content: Column(
@@ -1223,7 +1224,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             label,
             style: TextStyle(
               fontFamily: 'ProductSans',
-              color: AppColors.lightTextSecondary,
+              color: context.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -1233,7 +1234,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             value,
             style: TextStyle(
               fontFamily: 'ProductSans',
-              color: AppColors.lightTextPrimary,
+              color: context.textPrimary,
               fontSize: 14,
             ),
           ),
@@ -1348,7 +1349,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: AppColors.lightBackgroundSecondary,
+              color: context.backgroundSecondary,
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 64, color: AppColors.lightTextTertiary),
@@ -1359,7 +1360,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: AppColors.lightTextPrimary,
+              color: context.textPrimary,
               fontFamily: 'ProductSans',
             ),
           ),
@@ -1368,7 +1369,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             subtitle,
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.lightTextSecondary,
+              color: context.textSecondary,
               fontFamily: 'ProductSans',
             ),
             textAlign: TextAlign.center,
@@ -1410,7 +1411,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
   Widget _buildDrawer() {
     return Drawer(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       child: Column(
         children: [
           Container(
@@ -1568,7 +1569,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: AppColors.lightBackground,
+          color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -1579,7 +1580,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.lightBorder,
+                color: context.borderColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1593,7 +1594,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.lightTextPrimary,
+                      color: context.textPrimary,
                       fontFamily: 'ProductSans',
                     ),
                   ),
@@ -1611,7 +1612,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                           option.displayName,
                           style: TextStyle(
                             fontFamily: 'ProductSans',
-                            color: AppColors.lightTextPrimary,
+                            color: context.textPrimary,
                           ),
                         ),
                         onTap: () {
@@ -1640,7 +1641,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
           return Container(
             decoration: BoxDecoration(
-              color: AppColors.lightBackground,
+              color: context.backgroundColor,
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(24)),
             ),
@@ -1652,7 +1653,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.lightBorder,
+                    color: context.borderColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1666,7 +1667,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.lightTextPrimary,
+                          color: context.textPrimary,
                           fontFamily: 'ProductSans',
                         ),
                       ),
@@ -1695,7 +1696,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                       style: TextStyle(
                                         fontFamily: 'ProductSans',
                                         fontSize: 12,
-                                        color: AppColors.lightTextTertiary,
+                                        color: context.textTertiary,
                                       ),
                                     ),
                                     onTap: () async {
@@ -1752,7 +1753,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 maxHeight: MediaQuery.of(context).size.height * 0.7,
               ),
               decoration: BoxDecoration(
-                color: AppColors.lightBackground,
+                color: context.backgroundColor,
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(24)),
               ),
@@ -1764,7 +1765,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.lightBorder,
+                      color: context.borderColor,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1778,7 +1779,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.lightTextPrimary,
+                            color: context.textPrimary,
                             fontFamily: 'ProductSans',
                           ),
                         ),
@@ -1786,7 +1787,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                           '${selectedFiles.length} file(s) selected',
                           style: TextStyle(
                             fontSize: 13,
-                            color: AppColors.lightTextSecondary,
+                            color: context.textSecondary,
                             fontFamily: 'ProductSans',
                           ),
                         ),
@@ -1797,7 +1798,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                             hintText: 'Create new tag',
                             hintStyle: TextStyle(
                               fontFamily: 'ProductSans',
-                              color: AppColors.lightTextTertiary,
+                              color: context.textTertiary,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1840,7 +1841,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.lightTextTertiary,
+                            color: context.textTertiary,
                             fontFamily: 'ProductSans',
                           ),
                         ),
@@ -1861,7 +1862,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                             'Failed to load tags',
                             style: TextStyle(
                               fontFamily: 'ProductSans',
-                              color: AppColors.lightTextSecondary,
+                              color: context.textSecondary,
                             ),
                           ),
                           data: (tags) {
@@ -1874,7 +1875,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                     'No tags yet. Create one above!',
                                     style: TextStyle(
                                       fontFamily: 'ProductSans',
-                                      color: AppColors.lightTextTertiary,
+                                      color: context.textTertiary,
                                     ),
                                   ),
                                 ),
@@ -1925,7 +1926,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.lightTextTertiary,
+                            color: context.textTertiary,
                             fontFamily: 'ProductSans',
                           ),
                         ),
@@ -1989,19 +1990,19 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text(
           'Unhide Files',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
         content: Text(
           'Are you sure you want to unhide ${selectedFiles.length} file(s)? This will restore them to your device gallery (DCIM/Restored folder) and remove them from the vault.',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextSecondary,
+            color: context.textSecondary,
           ),
         ),
         actions: [
@@ -2011,7 +2012,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               'Cancel',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
           ),
@@ -2064,19 +2065,19 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text(
           'Delete Files',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
         content: Text(
           'Are you sure you want to delete ${selectedFiles.length} file(s)? This action cannot be undone.',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextSecondary,
+            color: context.textSecondary,
           ),
         ),
         actions: [
@@ -2086,7 +2087,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               'Cancel',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
           ),
@@ -2127,7 +2128,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           return PopScope(
             canPop: false,
             child: AlertDialog(
-              backgroundColor: AppColors.lightBackground,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -2139,7 +2140,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                     'Deleting ${selectedFiles.length} file(s)...',
                     style: TextStyle(
                       fontFamily: 'ProductSans',
-                      color: AppColors.lightTextPrimary,
+                      color: context.textPrimary,
                     ),
                   ),
                 ],
@@ -2181,7 +2182,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
           return Container(
             decoration: BoxDecoration(
-              color: AppColors.lightBackground,
+              color: context.backgroundColor,
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(24)),
             ),
@@ -2193,7 +2194,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.lightBorder,
+                    color: context.borderColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -2207,10 +2208,13 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.lightTextPrimary,
+                          color: context.textPrimary,
                           fontFamily: 'ProductSans',
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      // Theme toggle
+                      _buildThemeToggle(context, ref),
                       const SizedBox(height: 16),
                       settingsAsync.when(
                         loading: () =>
@@ -2228,7 +2232,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                 style: TextStyle(
                                   fontFamily: 'ProductSans',
                                   fontSize: 12,
-                                  color: AppColors.lightTextTertiary,
+                                  color: context.textTertiary,
                                 ),
                               ),
                               value: settings.encryptionEnabled,
@@ -2253,7 +2257,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                 style: TextStyle(
                                   fontFamily: 'ProductSans',
                                   fontSize: 12,
-                                  color: AppColors.lightTextTertiary,
+                                  color: context.textTertiary,
                                 ),
                               ),
                               value: settings.secureDelete,
@@ -2283,6 +2287,35 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     );
   }
 
+  Widget _buildThemeToggle(BuildContext context, WidgetRef ref) {
+    final isDarkMode = ref.watch(isDarkModeProvider);
+
+    return SwitchListTile(
+      title: const Text(
+        'Dark Mode',
+        style: TextStyle(fontFamily: 'ProductSans'),
+      ),
+      subtitle: Text(
+        isDarkMode ? 'Eye-friendly dark theme' : 'Clean light theme',
+        style: TextStyle(
+          fontFamily: 'ProductSans',
+          fontSize: 12,
+          color: context.textTertiary,
+        ),
+      ),
+      secondary: Icon(
+        isDarkMode ? Icons.dark_mode : Icons.light_mode,
+        color: context.accentColor,
+      ),
+      value: isDarkMode,
+      onChanged: (value) {
+        ref.read(themeModeProvider.notifier).toggleTheme();
+      },
+      activeThumbColor: context.accentColor,
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+
   void _showDecoyModeSheet() {
     showModalBottomSheet(
       context: context,
@@ -2293,7 +2326,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
           return Container(
             decoration: BoxDecoration(
-              color: AppColors.lightBackground,
+              color: context.backgroundColor,
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(24)),
             ),
@@ -2305,7 +2338,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.lightBorder,
+                    color: context.borderColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -2323,7 +2356,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.lightTextPrimary,
+                              color: context.textPrimary,
                               fontFamily: 'ProductSans',
                             ),
                           ),
@@ -2334,7 +2367,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                         'Set up a fake vault that shows when using a different PIN/password. Perfect for situations where you might be forced to open the app.',
                         style: TextStyle(
                           fontFamily: 'ProductSans',
-                          color: AppColors.lightTextSecondary,
+                          color: context.textSecondary,
                           fontSize: 14,
                         ),
                       ),
@@ -2385,7 +2418,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                   style: TextStyle(
                                     fontFamily: 'ProductSans',
                                     fontSize: 12,
-                                    color: AppColors.lightTextTertiary,
+                                    color: context.textTertiary,
                                   ),
                                 ),
                                 onTap: () {
@@ -2416,12 +2449,12 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         title: Text(
           'Set Decoy PIN',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
         content: Column(
@@ -2431,7 +2464,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               'This PIN will show your decoy vault instead of your real files.',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
                 fontSize: 14,
               ),
             ),
@@ -2445,7 +2478,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 labelText: 'Decoy PIN (4-6 digits)',
                 labelStyle: TextStyle(
                   fontFamily: 'ProductSans',
-                  color: AppColors.lightTextSecondary,
+                  color: context.textSecondary,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -2465,7 +2498,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               'Cancel',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
           ),
@@ -2842,7 +2875,7 @@ class _ImportOptionsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.lightBackground,
+        color: context.backgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -2853,7 +2886,7 @@ class _ImportOptionsSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.lightBorder,
+              color: context.borderColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -2867,7 +2900,7 @@ class _ImportOptionsSheet extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.lightTextPrimary,
+                    color: context.textPrimary,
                     fontFamily: 'ProductSans',
                   ),
                 ),
@@ -2876,12 +2909,12 @@ class _ImportOptionsSheet extends StatelessWidget {
                   'Files will be encrypted and hidden securely',
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.lightTextSecondary,
+                    color: context.textSecondary,
                     fontFamily: 'ProductSans',
                   ),
                 ),
                 const SizedBox(height: 24),
-                _buildSectionHeader('From Gallery'),
+                _buildSectionHeader(context, 'From Gallery'),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -2914,7 +2947,7 @@ class _ImportOptionsSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildSectionHeader('From Camera'),
+                _buildSectionHeader(context, 'From Camera'),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -2940,7 +2973,7 @@ class _ImportOptionsSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildSectionHeader('From File Manager'),
+                _buildSectionHeader(context, 'From File Manager'),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -2968,13 +3001,13 @@ class _ImportOptionsSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Text(
       title,
       style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: AppColors.lightTextTertiary,
+        color: context.textTertiary,
         fontFamily: 'ProductSans',
         letterSpacing: 0.5,
       ),
@@ -3025,6 +3058,28 @@ class _ImportOptionTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Const-friendly placeholder widget for loading images
+/// Extracted as a separate class to enable const constructor usage
+class _ImageLoadingPlaceholder extends StatelessWidget {
+  const _ImageLoadingPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.grey.shade200,
+      child: const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+          ),
         ),
       ),
     );

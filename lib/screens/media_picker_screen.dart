@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../services/auto_kill_service.dart';
 import '../themes/app_colors.dart';
+import '../utils/responsive_utils.dart';
 
 /// A custom media picker that uses PhotoManager to directly access gallery assets.
 /// This allows proper deletion of original files from the gallery.
@@ -192,9 +193,9 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.close, color: AppColors.lightTextPrimary),
@@ -234,7 +235,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
         widget.title,
         style: TextStyle(
           fontFamily: 'ProductSans',
-          color: AppColors.lightTextPrimary,
+          color: context.textPrimary,
           fontWeight: FontWeight.w600,
         ),
       );
@@ -256,7 +257,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
               _currentAlbum?.name ?? widget.title,
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
                 fontWeight: FontWeight.w600,
                 fontSize: 18,
               ),
@@ -292,7 +293,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
           Icon(
             Icons.photo_library_outlined,
             size: 64,
-            color: AppColors.lightTextTertiary,
+            color: context.textTertiary,
           ),
           const SizedBox(height: 16),
           Text(
@@ -300,7 +301,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
             style: TextStyle(
               fontFamily: 'ProductSans',
               fontSize: 18,
-              color: AppColors.lightTextSecondary,
+              color: context.textSecondary,
             ),
           ),
         ],
@@ -312,8 +313,11 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
     return GridView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.all(2),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
+      gridDelegate: ResponsiveGridDelegate.responsive(
+        context,
+        compact: 4,
+        medium: 5,
+        expanded: 6,
         crossAxisSpacing: 2,
         mainAxisSpacing: 2,
       ),
@@ -351,12 +355,12 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
               // Handle errors gracefully
               if (snapshot.hasError) {
                 return Container(
-                  color: AppColors.lightBackgroundSecondary,
+                  color: context.backgroundSecondary,
                   child: Icon(
                     asset.type == AssetType.video
                         ? Icons.videocam
                         : Icons.image,
-                    color: AppColors.lightTextTertiary,
+                    color: context.textTertiary,
                   ),
                 );
               }
@@ -372,12 +376,12 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
                     errorBuilder: (context, error, stackTrace) {
                       // Handle image decode errors
                       return Container(
-                        color: AppColors.lightBackgroundSecondary,
+                        color: context.backgroundSecondary,
                         child: Icon(
                           asset.type == AssetType.video
                               ? Icons.videocam
                               : Icons.image,
-                          color: AppColors.lightTextTertiary,
+                          color: context.textTertiary,
                         ),
                       );
                     },
@@ -385,12 +389,12 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
                 } catch (e) {
                   // Fallback for any other errors
                   return Container(
-                    color: AppColors.lightBackgroundSecondary,
+                    color: context.backgroundSecondary,
                     child: Icon(
                       asset.type == AssetType.video
                           ? Icons.videocam
                           : Icons.image,
-                      color: AppColors.lightTextTertiary,
+                      color: context.textTertiary,
                     ),
                   );
                 }
@@ -398,7 +402,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
 
               // Loading state
               return Container(
-                color: AppColors.lightBackgroundSecondary,
+                color: context.backgroundSecondary,
                 child: Center(
                   child: SizedBox(
                     width: 20,
@@ -496,7 +500,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
         bottom: MediaQuery.of(context).padding.bottom + 12,
       ),
       decoration: BoxDecoration(
-        color: AppColors.lightBackground,
+        color: context.backgroundColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -514,7 +518,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
                 fontFamily: 'ProductSans',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
               ),
             ),
           ),
