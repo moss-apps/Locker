@@ -1,17 +1,35 @@
 import 'package:flutter/material.dart';
 import '../themes/app_colors.dart';
 
-/// Custom PIN input widget with numeric keypad
+// Custom PIN input widget with numeric keypad.
+class PinInputController {
+  VoidCallback? _clear;
+
+  void _attach({required VoidCallback clear}) {
+    _clear = clear;
+  }
+
+  void _detach() {
+    _clear = null;
+  }
+
+  void clear() {
+    _clear?.call();
+  }
+}
+
 class PinInputWidget extends StatefulWidget {
   final Function(String) onPinComplete;
   final VoidCallback? onPinChanged;
   final String? errorMessage;
+  final PinInputController? controller;
 
   const PinInputWidget({
     super.key,
     required this.onPinComplete,
     this.onPinChanged,
     this.errorMessage,
+    this.controller,
   });
 
   @override
@@ -21,6 +39,26 @@ class PinInputWidget extends StatefulWidget {
 class _PinInputWidgetState extends State<PinInputWidget> {
   String _pin = '';
   final int _pinLength = 6;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller?._attach(clear: clearPin);
+  }
+
+  @override
+  void didUpdateWidget(covariant PinInputWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    oldWidget.controller?._detach();
+    widget.controller?._attach(clear: clearPin);
+  }
+
+  @override
+  void dispose() {
+    widget.controller?._detach();
+    super.dispose();
+  }
 
   void _addDigit(String digit) {
     if (_pin.length < _pinLength) {
