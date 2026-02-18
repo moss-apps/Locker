@@ -14,7 +14,7 @@ import '../services/auto_kill_service.dart';
 import '../themes/app_colors.dart';
 import '../utils/toast_utils.dart';
 
-/// Full-screen media viewer for images and videos with slideshow support
+// Full-screen media viewer: images, videos, slideshow.
 class MediaViewerScreen extends ConsumerStatefulWidget {
   final VaultedFile initialFile;
   final List<VaultedFile> files;
@@ -126,8 +126,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       await _videoController!.setPlaybackSpeed(_playbackSpeed);
       await _videoController!.setVolume(_isMuted ? 0.0 : 1.0);
 
-      // Add debounced listener to update UI for progress
-      // Updates every 250ms instead of every frame to reduce setState calls
+      // Debounced listener for progress; avoids setState every frame.
       _videoController!.addListener(_onVideoUpdate);
 
       if (mounted) {
@@ -141,8 +140,7 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     }
   }
 
-  /// Debounced video update handler - limits UI updates to _videoUpdateInterval
-  /// This prevents setState from being called on every video frame (~60 times/sec)
+  // Debounce video updates to avoid setState every frame.
   void _onVideoUpdate() {
     // Skip if timer is already scheduled (debouncing)
     if (_videoUpdateTimer?.isActive == true) return;
@@ -182,6 +180,11 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     ToastUtils.showSuccess(
       wasFavorite ? 'Removed from favorites' : 'Added to favorites',
     );
+  }
+
+  void _toggleLooping() async {
+    setState(() => _isLooping = !_isLooping);
+    await _videoController?.setLooping(_isLooping);
   }
 
   void _startSlideshow() {
@@ -821,44 +824,32 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
           alignment: Alignment.center,
           children: [
             VideoPlayer(_videoController!),
-            // Main Controls Overlay
             if (_showControls)
-              // Absorb taps on the controls area to prevent toggling controls
               GestureDetector(
-                onTap: () {}, // Absorb tap to prevent propagation
+                onTap: () {},
                 behavior: HitTestBehavior.opaque,
-                child: Container(
-                  color: Colors.black26,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.replay_10, size: 36),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.replay_10, size: 36),
+                      color: Colors.white,
+                      onPressed: _skipBackward,
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        _isVideoPlaying ? Icons.pause : Icons.play_arrow,
+                        size: 48,
                         color: Colors.white,
-                        onPressed: _skipBackward,
                       ),
-                      GestureDetector(
-                        onTap: _toggleVideoPlayback,
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white24,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            _isVideoPlaying ? Icons.pause : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 48,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.forward_10, size: 36),
-                        color: Colors.white,
-                        onPressed: _skipForward,
-                      ),
-                    ],
-                  ),
+                      onPressed: _toggleVideoPlayback,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.forward_10, size: 36),
+                      color: Colors.white,
+                      onPressed: _skipForward,
+                    ),
+                  ],
                 ),
               ),
             // Tap area needed to toggle controls
@@ -966,6 +957,14 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
               ),
               onPressed: _toggleFavorite,
             ),
+            if (file.isVideo)
+              IconButton(
+                icon: Icon(
+                  _isLooping ? Icons.repeat_one : Icons.repeat,
+                  color: _isLooping ? AppColors.accent : Colors.white,
+                ),
+                onPressed: _toggleLooping,
+              ),
             IconButton(
               icon: const Icon(Icons.info_outline, color: Colors.white),
               onPressed: _showFileInfo,
@@ -989,9 +988,8 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
       bottom: 0,
       left: 0,
       right: 0,
-      // Absorb taps to prevent parent GestureDetector from toggling controls
       child: GestureDetector(
-        onTap: () {}, // Absorb tap to prevent propagation
+        onTap: () {},
         behavior: HitTestBehavior.opaque,
         child: Container(
           padding: EdgeInsets.only(
