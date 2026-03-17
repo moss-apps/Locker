@@ -24,6 +24,7 @@ import 'media_picker_screen.dart';
 import 'document_picker_screen.dart';
 import 'package:photo_manager/photo_manager.dart' hide AlbumType;
 import 'camera_screen.dart';
+import 'local_backup_screen.dart';
 
 /// Gallery vault screen - main screen after authentication
 class GalleryVaultScreen extends ConsumerStatefulWidget {
@@ -2213,7 +2214,33 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // Theme toggle
+                      ListTile(
+                        leading: Icon(Icons.backup_outlined,
+                            color: AppColors.accent),
+                        title: const Text(
+                          'Local backup',
+                          style: TextStyle(fontFamily: 'ProductSans'),
+                        ),
+                        subtitle: Text(
+                          'Save vault as ZIP to a folder',
+                          style: TextStyle(
+                            fontFamily: 'ProductSans',
+                            fontSize: 12,
+                            color: context.textTertiary,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LocalBackupScreen(),
+                            ),
+                          );
+                        },
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      const SizedBox(height: 16),
                       _buildThemeToggle(context, ref),
                       const SizedBox(height: 16),
                       settingsAsync.when(

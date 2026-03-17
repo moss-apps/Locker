@@ -4,7 +4,7 @@ import '../services/auth_service.dart';
 import '../widgets/pin_input_widget.dart';
 import 'gallery_vault_screen.dart';
 
-/// Unlock screen for returning users
+// Unlock screen for returning users.
 class UnlockScreen extends StatefulWidget {
   const UnlockScreen({super.key});
 
@@ -19,6 +19,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
   bool _isLoading = true;
   bool _obscurePassword = true;
   final TextEditingController _passwordController = TextEditingController();
+  final PinInputController _pinController = PinInputController();
 
   @override
   void initState() {
@@ -58,6 +59,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
       setState(() {
         _errorMessage = 'Incorrect PIN. Please try again.';
       });
+      _pinController.clear();
     }
   }
 
@@ -199,6 +201,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
                   onPinComplete: _handlePinComplete,
                   onPinChanged: _handlePinChanged,
                   errorMessage: _errorMessage,
+                  controller: _pinController,
                 )
               else if (_authMethod == 'password')
                 Column(
