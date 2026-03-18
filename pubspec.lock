@@ -294,6 +294,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_bicubic_resize:
+    dependency: "direct main"
+    description:
+      name: flutter_bicubic_resize
+      sha256: "3f023cfd3dfadb129fc215563c028656b055c1dd5468e7c5f89beb3e9d8414f3"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.4.0"
   flutter_launcher_icons:
     dependency: "direct main"
     description:

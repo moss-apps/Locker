@@ -2299,6 +2299,31 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                               activeThumbColor: AppColors.accent,
                               contentPadding: EdgeInsets.zero,
                             ),
+                            SwitchListTile(
+                              title: const Text(
+                                'Compress Media',
+                                style: TextStyle(fontFamily: 'ProductSans'),
+                              ),
+                              subtitle: Text(
+                                'Reduce file size for images and videos',
+                                style: TextStyle(
+                                  fontFamily: 'ProductSans',
+                                  fontSize: 12,
+                                  color: context.textTertiary,
+                                ),
+                              ),
+                              value: settings.compressionEnabled,
+                              onChanged: (value) async {
+                                await ref
+                                    .read(vaultServiceProvider)
+                                    .updateSettings(settings.copyWith(
+                                      compressionEnabled: value,
+                                    ));
+                                ref.invalidate(vaultSettingsProvider);
+                              },
+                              activeThumbColor: AppColors.accent,
+                              contentPadding: EdgeInsets.zero,
+                            ),
                           ],
                         ),
                       ),

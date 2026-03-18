@@ -1,0 +1,153 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_bicubic_resize/flutter_bicubic_resize.dart';
+import 'package:path_provider/path_provider.dart';
+
+class CompressionService {
+  CompressionService._();
+  static final CompressionService instance = CompressionService._();
+
+  static const int _maxImageDimension = 1920;
+  static const int _jpegQuality = 80;
+  static const int _pngCompressionLevel = 6;
+
+  Future<String?> compressImage(String sourcePath) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        debugPrint('[Compression] Source file does not exist: $sourcePath');
+        return null;
+      }
+
+      final bytes = await sourceFile.readAsBytes();
+      final extension = sourcePath.split('.').last.toLowerCase();
+
+      Uint8List? compressedBytes;
+
+      if (extension == 'jpg' || extension == 'jpeg') {
+        compressedBytes = await _compressJpeg(bytes);
+      } else if (extension == 'png') {
+        compressedBytes = await _compressPng(bytes);
+      } else {
+        compressedBytes = await _compressJpeg(bytes);
+      }
+
+      if (compressedBytes == null) {
+        debugPrint('[Compression] Failed to compress image: $sourcePath');
+        return null;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final compressedPath =
+          '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      final compressedFile = File(compressedPath);
+      await compressedFile.writeAsBytes(compressedBytes);
+
+      debugPrint(
+          '[Compression] Compressed image: $sourcePath (${bytes.length} -> ${compressedBytes.length} bytes)');
+      return compressedPath;
+    } catch (e) {
+      debugPrint('[Compression] Error compressing image: $e');
+      return null;
+    }
+  }
+
+  Future<Uint8List?> _compressJpeg(Uint8List bytes) async {
+    try {
+      final result = BicubicResizer.resizeJpeg(
+        jpegBytes: bytes,
+        outputWidth: _maxImageDimension,
+        outputHeight: _maxImageDimension,
+        quality: _jpegQuality,
+      );
+      return result;
+    } catch (e) {
+      debugPrint('[Compression] JPEG compression error: $e');
+      return null;
+    }
+  }
+
+  Future<Uint8List?> _compressPng(Uint8List bytes) async {
+    try {
+      final result = BicubicResizer.resize(
+        bytes: bytes,
+        outputWidth: _maxImageDimension,
+        outputHeight: _maxImageDimension,
+        quality: _pngCompressionLevel,
+      );
+      return result;
+    } catch (e) {
+      debugPrint('[Compression] PNG compression error: $e');
+      return null;
+    }
+  }
+
+  Future<String?> compressVideo(String sourcePath) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        debugPrint('[Compression] Source file does not exist: $sourcePath');
+        return null;
+      }
+
+      final fileSize = await sourceFile.length();
+      final tempDir = await getTemporaryDirectory();
+
+      final outputPath =
+          '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+      int targetBitrate = 2000000;
+      if (fileSize > 100 * 1024 * 1024) {
+        targetBitrate = 1000000;
+      } else if (fileSize > 50 * 1024 * 1024) {
+        targetBitrate = 1500000;
+      }
+
+      debugPrint(
+          '[Compression] Video compression - original size: ${fileSize ~/ (1024 * 1024)}MB, target bitrate: ${targetBitrate ~/ 1000}kbps');
+
+      final process = await Process.start(
+        'ffmpeg',
+        [
+          '-i',
+          sourcePath,
+          '-vcodec',
+          'libx264',
+          '-preset',
+          'medium',
+          '-crf',
+          '28',
+          '-b:v',
+          '$targetBitrate',
+          '-acodec',
+          'aac',
+          '-b:a',
+          '128k',
+          '-movflags',
+          '+faststart',
+          '-y',
+          outputPath,
+        ],
+      );
+
+      final exitCode = await process.exitCode;
+
+      if (exitCode == 0) {
+        final outputFile = File(outputPath);
+        if (await outputFile.exists()) {
+          final outputSize = await outputFile.length();
+          debugPrint(
+              '[Compression] Compressed video: $sourcePath (${fileSize ~/ (1024 * 1024)}MB -> ${outputSize ~/ (1024 * 1024)}MB)');
+          return outputPath;
+        }
+      }
+
+      debugPrint(
+          '[Compression] FFmpeg video compression failed with code: $exitCode');
+      return null;
+    } catch (e) {
+      debugPrint('[Compression] Video compression error: $e');
+      return null;
+    }
+  }
+}
