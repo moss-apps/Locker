@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -5,6 +6,12 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pointycastle/export.dart';
+
+const int _streamChunkSize = 1024 * 1024;
+
+const int _magicBytesGcm = 0x4C4B5247;
+const int _magicBytesCtr = 0x4C4B5253;
+const int _magicBytesCbc = 0x4C4B5244;
 
 /// AES-256 Encryption Service for secure file encryption
 /// Uses AES-256-CBC mode with PKCS7 padding
@@ -116,6 +123,28 @@ class EncryptionService {
     );
 
     return cipher;
+  }
+
+  GCMBlockCipher _getGcmCipher(
+      Uint8List key, Uint8List iv, bool forEncryption) {
+    final cipher = GCMBlockCipher(AESEngine());
+    final params = AEADParameters(KeyParameter(key), 128, iv, Uint8List(0));
+    cipher.init(forEncryption, params);
+    return cipher;
+  }
+
+  Stream<List<int>> _createChunkedStream(Stream<List<int>> input) {
+    return input.transform(_ChunkedStreamTransformer(_streamChunkSize));
+  }
+
+  int detectEncryptionFormat(List<int> bytes) {
+    if (bytes.length < 4) return 0;
+    final magic =
+        bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
+    if (magic == _magicBytesGcm) return 1; // GCM
+    if (magic == _magicBytesCtr) return 2; // CTR (streamed)
+    if (magic == _magicBytesCbc) return 3; // CBC (legacy)
+    return 0;
   }
 
   /// Encrypt data using AES-256-CBC
@@ -269,7 +298,7 @@ class EncryptionService {
 
       int bytesProcessed = 0;
 
-      final inputStream = sourceFile.openRead();
+      final inputStream = _createChunkedStream(sourceFile.openRead());
       await for (final chunk in inputStream) {
         final encrypted = ctr.process(Uint8List.fromList(chunk));
         sink.add(encrypted);
@@ -406,8 +435,8 @@ class EncryptionService {
       final totalBytes = encryptedSize - 8; // Subtract header size
       int bytesProcessed = 0;
 
-      // Read encrypted data after header
-      final inputStream = encryptedFile.openRead(8); // Skip 8-byte header
+      // Read encrypted data after header - use chunked stream
+      final inputStream = _createChunkedStream(encryptedFile.openRead(8));
       await for (final chunk in inputStream) {
         final decrypted = ctr.process(Uint8List.fromList(chunk));
         sink.add(decrypted);
@@ -449,15 +478,17 @@ class EncryptionService {
         );
       }
 
-      final encryptedData = await encryptedFile.readAsBytes();
+      // Check magic bytes first (without loading entire file)
+      final raf = await encryptedFile.open();
+      final header = await raf.read(8);
+      await raf.close();
 
-      // Check for streamed file magic bytes
-      if (encryptedData.length >= 8 &&
-          encryptedData[0] == 0x4C &&
-          encryptedData[1] == 0x4B &&
-          encryptedData[2] == 0x52 &&
-          encryptedData[3] == 0x53) {
-        // This is a CTR-encrypted streamed file
+      if (header.length >= 4 &&
+          header[0] == 0x4C &&
+          header[1] == 0x4B &&
+          header[2] == 0x52 &&
+          header[3] == 0x53) {
+        // CTR-encrypted streamed file - use streaming decryption
         final key =
             isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
         final iv = base64Decode(ivBase64);
@@ -465,16 +496,22 @@ class EncryptionService {
         final ctr = CTRStreamCipher(AESEngine())
           ..init(false, ParametersWithIV<KeyParameter>(KeyParameter(key), iv));
 
-        // Skip 8-byte header and decrypt
-        final dataToDecrypt = Uint8List.sublistView(encryptedData, 8);
-        final decrypted = ctr.process(dataToDecrypt);
+        // Stream decryption without loading entire file
+        final inputStream = _createChunkedStream(encryptedFile.openRead(8));
+        final decryptedBytes = <int>[];
+
+        await for (final chunk in inputStream) {
+          final decrypted = ctr.process(Uint8List.fromList(chunk));
+          decryptedBytes.addAll(decrypted);
+        }
 
         return DecryptionResult(
           success: true,
-          data: decrypted,
+          data: Uint8List.fromList(decryptedBytes),
         );
       } else {
-        // Fall back to CBC decryption for legacy files
+        // Fall back to loading entire file for CBC decryption (legacy)
+        final encryptedData = await encryptedFile.readAsBytes();
         return await decryptData(
           encryptedData,
           ivBase64,
@@ -519,6 +556,421 @@ class EncryptionService {
       );
     }
   }
+
+  /// Encrypt data using AES-256-GCM (faster + authenticated)
+  Future<EncryptionResult> encryptDataGcm(
+    Uint8List data, {
+    bool isDecoy = false,
+    Uint8List? customKey,
+  }) async {
+    try {
+      final key = customKey ??
+          (isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey());
+      final iv = generateIV();
+
+      final cipher = _getGcmCipher(key, iv, true);
+      final encrypted = cipher.process(data);
+
+      return EncryptionResult(
+        success: true,
+        data: encrypted,
+        iv: base64Encode(iv),
+      );
+    } catch (e) {
+      debugPrint('GCM Encryption error: $e');
+      return EncryptionResult(
+        success: false,
+        error: 'GCM Encryption failed: $e',
+      );
+    }
+  }
+
+  /// Decrypt data using AES-256-GCM (faster + authenticated)
+  Future<DecryptionResult> decryptDataGcm(
+    Uint8List encryptedData,
+    String ivBase64, {
+    bool isDecoy = false,
+    Uint8List? customKey,
+  }) async {
+    try {
+      final key = customKey ??
+          (isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey());
+      final iv = base64Decode(ivBase64);
+
+      final cipher = _getGcmCipher(key, iv, false);
+      final decrypted = cipher.process(encryptedData);
+
+      return DecryptionResult(
+        success: true,
+        data: decrypted,
+      );
+    } catch (e) {
+      debugPrint('GCM Decryption error: $e');
+      return DecryptionResult(
+        success: false,
+        error: 'GCM Decryption failed: $e',
+      );
+    }
+  }
+
+  /// Encrypt file using AES-256-GCM (faster + authenticated)
+  Future<FileEncryptionResult> encryptFileGcm(
+    String sourcePath,
+    String destinationPath, {
+    bool isDecoy = false,
+    Function(int current, int total)? onProgress,
+  }) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        return FileEncryptionResult(
+          success: false,
+          error: 'Source file does not exist',
+        );
+      }
+
+      final data = await sourceFile.readAsBytes();
+      onProgress?.call(1, 3);
+
+      final result = await encryptDataGcm(
+        Uint8List.fromList(data),
+        isDecoy: isDecoy,
+      );
+      onProgress?.call(2, 3);
+
+      if (!result.success || result.data == null) {
+        return FileEncryptionResult(
+          success: false,
+          error: result.error ?? 'GCM Encryption failed',
+        );
+      }
+
+      final destFile = File(destinationPath);
+      final sink = destFile.openWrite();
+
+      // Write GCM header: 4 bytes magic + 4 bytes original file size
+      final header = Uint8List(8);
+      header[0] = 0x4C; // 'L'
+      header[1] = 0x4B; // 'K'
+      header[2] = 0x52; // 'R'
+      header[3] = 0x47; // 'G' (GCM)
+      header[4] = (data.length & 0xFF);
+      header[5] = ((data.length >> 8) & 0xFF);
+      header[6] = ((data.length >> 16) & 0xFF);
+      header[7] = ((data.length >> 24) & 0xFF);
+      sink.add(header);
+      sink.add(result.data!);
+
+      await sink.flush();
+      await sink.close();
+      onProgress?.call(3, 3);
+
+      return FileEncryptionResult(
+        success: true,
+        encryptedPath: destinationPath,
+        iv: result.iv,
+        originalSize: data.length,
+        encryptedSize: result.data!.length + 8,
+      );
+    } catch (e) {
+      debugPrint('GCM File encryption error: $e');
+      return FileEncryptionResult(
+        success: false,
+        error: 'GCM File encryption failed: $e',
+      );
+    }
+  }
+
+  /// Decrypt file using AES-256-GCM (faster + authenticated)
+  Future<FileDecryptionResult> decryptFileGcm(
+    String encryptedPath,
+    String destinationPath,
+    String ivBase64, {
+    bool isDecoy = false,
+    Function(int current, int total)? onProgress,
+  }) async {
+    try {
+      final encryptedFile = File(encryptedPath);
+      if (!await encryptedFile.exists()) {
+        return FileDecryptionResult(
+          success: false,
+          error: 'Encrypted file does not exist',
+        );
+      }
+
+      final raf = await encryptedFile.open();
+      final header = await raf.read(8);
+
+      // Verify GCM magic bytes
+      if (header.length < 8 ||
+          header[0] != 0x4C ||
+          header[1] != 0x4B ||
+          header[2] != 0x52 ||
+          header[3] != 0x47) {
+        await raf.close();
+        return FileDecryptionResult(
+          success: false,
+          error: 'Not a GCM-encrypted file',
+        );
+      }
+
+      final originalSize =
+          header[4] | (header[5] << 8) | (header[6] << 16) | (header[7] << 24);
+
+      final encryptedData = await raf.read(await encryptedFile.length() - 8);
+      await raf.close();
+
+      onProgress?.call(1, 2);
+
+      final result = await decryptDataGcm(
+        Uint8List.fromList(encryptedData),
+        ivBase64,
+        isDecoy: isDecoy,
+      );
+      onProgress?.call(2, 2);
+
+      if (!result.success || result.data == null) {
+        return FileDecryptionResult(
+          success: false,
+          error: result.error ?? 'GCM Decryption failed',
+        );
+      }
+
+      final destFile = File(destinationPath);
+      await destFile.writeAsBytes(result.data!);
+
+      return FileDecryptionResult(
+        success: true,
+        decryptedPath: destinationPath,
+        decryptedSize: originalSize,
+      );
+    } catch (e) {
+      debugPrint('GCM File decryption error: $e');
+      return FileDecryptionResult(
+        success: false,
+        error: 'GCM File decryption failed: $e',
+      );
+    }
+  }
+
+  /// Encrypt file using GCM with streaming (memory-efficient for large files)
+  Future<FileEncryptionResult> encryptFileStreamedGcm(
+    String sourcePath,
+    String destinationPath, {
+    bool isDecoy = false,
+    Function(int bytesProcessed, int totalBytes)? onProgress,
+  }) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        return FileEncryptionResult(
+          success: false,
+          error: 'Source file does not exist',
+        );
+      }
+
+      final key = isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
+      final iv = generateIV();
+      final totalBytes = await sourceFile.length();
+
+      final gcm = GCMBlockCipher(AESEngine())
+        ..init(true, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
+
+      final destFile = File(destinationPath);
+      final sink = destFile.openWrite();
+
+      // Write GCM header
+      final header = Uint8List(8);
+      header[0] = 0x4C;
+      header[1] = 0x4B;
+      header[2] = 0x52;
+      header[3] = 0x47;
+      header[4] = (totalBytes & 0xFF);
+      header[5] = ((totalBytes >> 8) & 0xFF);
+      header[6] = ((totalBytes >> 16) & 0xFF);
+      header[7] = ((totalBytes >> 24) & 0xFF);
+      sink.add(header);
+
+      int bytesProcessed = 0;
+      final inputStream = _createChunkedStream(sourceFile.openRead());
+
+      await for (final chunk in inputStream) {
+        final encrypted = gcm.process(Uint8List.fromList(chunk));
+        sink.add(encrypted);
+
+        bytesProcessed += chunk.length;
+        onProgress?.call(bytesProcessed, totalBytes);
+      }
+
+      await sink.flush();
+      await sink.close();
+
+      return FileEncryptionResult(
+        success: true,
+        encryptedPath: destinationPath,
+        iv: base64Encode(iv),
+        originalSize: totalBytes,
+        encryptedSize: await destFile.length(),
+      );
+    } catch (e) {
+      debugPrint('GCM streaming encryption error: $e');
+      return FileEncryptionResult(
+        success: false,
+        error: 'GCM streaming encryption failed: $e',
+      );
+    }
+  }
+
+  /// Decrypt GCM streamed file to memory
+  Future<DecryptionResult> decryptStreamedFileToMemoryGcm(
+    String encryptedPath,
+    String ivBase64, {
+    bool isDecoy = false,
+  }) async {
+    try {
+      final encryptedFile = File(encryptedPath);
+      if (!await encryptedFile.exists()) {
+        return DecryptionResult(
+          success: false,
+          error: 'Encrypted file does not exist',
+        );
+      }
+
+      final key = isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
+      final iv = base64Decode(ivBase64);
+
+      final gcm = GCMBlockCipher(AESEngine())
+        ..init(false, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
+
+      final raf = await encryptedFile.open();
+      await raf.read(8); // Skip header
+
+      final encryptedData = await raf.read(await encryptedFile.length() - 8);
+      await raf.close();
+
+      final decrypted = gcm.process(Uint8List.fromList(encryptedData));
+
+      return DecryptionResult(
+        success: true,
+        data: decrypted,
+      );
+    } catch (e) {
+      debugPrint('GCM streamed decryption error: $e');
+      return DecryptionResult(
+        success: false,
+        error: 'GCM decryption failed: $e',
+      );
+    }
+  }
+
+  /// Encrypt file in isolate (for large files)
+  Future<FileEncryptionResult> encryptFileInIsolate(
+    String sourcePath,
+    String destinationPath, {
+    bool isDecoy = false,
+    bool useGcm = true,
+    Function(int bytesProcessed, int totalBytes)? onProgress,
+  }) async {
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        return FileEncryptionResult(
+          success: false,
+          error: 'Source file does not exist',
+        );
+      }
+
+      final key = isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
+      final iv = generateIV();
+      final totalBytes = await sourceFile.length();
+
+      final result = await compute(
+        _encryptFileIsolate,
+        _IsolateEncryptParams(
+          sourcePath: sourcePath,
+          destinationPath: destinationPath,
+          keyBase64: base64Encode(key),
+          ivBase64: base64Encode(iv),
+          useGcm: useGcm,
+        ),
+      );
+
+      if (result.success) {
+        return FileEncryptionResult(
+          success: true,
+          encryptedPath: destinationPath,
+          iv: base64Encode(iv),
+          originalSize: totalBytes,
+          encryptedSize: result.encryptedSize,
+        );
+      } else {
+        return FileEncryptionResult(
+          success: false,
+          error: result.error,
+        );
+      }
+    } catch (e) {
+      debugPrint('Isolate encryption error: $e');
+      return FileEncryptionResult(
+        success: false,
+        error: 'Isolate encryption failed: $e',
+      );
+    }
+  }
+
+  /// Decrypt file in isolate (for large files)
+  Future<FileDecryptionResult> decryptFileInIsolate(
+    String encryptedPath,
+    String destinationPath,
+    String ivBase64, {
+    bool isDecoy = false,
+    bool useGcm = false,
+    Function(int bytesProcessed, int totalBytes)? onProgress,
+  }) async {
+    try {
+      final encryptedFile = File(encryptedPath);
+      if (!await encryptedFile.exists()) {
+        return FileDecryptionResult(
+          success: false,
+          error: 'Encrypted file does not exist',
+        );
+      }
+
+      final key = isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
+
+      final result = await compute(
+        _decryptFileIsolate,
+        _IsolateDecryptParams(
+          encryptedPath: encryptedPath,
+          destinationPath: destinationPath,
+          keyBase64: base64Encode(key),
+          ivBase64: ivBase64,
+          useGcm: useGcm,
+        ),
+      );
+
+      if (result.success) {
+        return FileDecryptionResult(
+          success: true,
+          decryptedPath: destinationPath,
+          decryptedSize: result.decryptedSize,
+        );
+      } else {
+        return FileDecryptionResult(
+          success: false,
+          error: result.error,
+        );
+      }
+    } catch (e) {
+      debugPrint('Isolate decryption error: $e');
+      return FileDecryptionResult(
+        success: false,
+        error: 'Isolate decryption failed: $e',
+      );
+    }
+  }
+
+
 
   /// Generate a hash of the data (for integrity verification)
   String generateHash(Uint8List data) {
@@ -683,6 +1135,189 @@ class EncryptionService {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Isolate helpers (top-level so they can be passed to compute())
+// ---------------------------------------------------------------------------
+
+class _IsolateEncryptParams {
+  final String sourcePath;
+  final String destinationPath;
+  final String keyBase64;
+  final String ivBase64;
+  final bool useGcm;
+
+  const _IsolateEncryptParams({
+    required this.sourcePath,
+    required this.destinationPath,
+    required this.keyBase64,
+    required this.ivBase64,
+    required this.useGcm,
+  });
+}
+
+class _IsolateDecryptParams {
+  final String encryptedPath;
+  final String destinationPath;
+  final String keyBase64;
+  final String ivBase64;
+  final bool useGcm;
+
+  const _IsolateDecryptParams({
+    required this.encryptedPath,
+    required this.destinationPath,
+    required this.keyBase64,
+    required this.ivBase64,
+    required this.useGcm,
+  });
+}
+
+class _IsolateEncryptResult {
+  final bool success;
+  final int encryptedSize;
+  final String? error;
+
+  const _IsolateEncryptResult({
+    required this.success,
+    this.encryptedSize = 0,
+    this.error,
+  });
+}
+
+class _IsolateDecryptResult {
+  final bool success;
+  final int decryptedSize;
+  final String? error;
+
+  const _IsolateDecryptResult({
+    required this.success,
+    this.decryptedSize = 0,
+    this.error,
+  });
+}
+
+Future<_IsolateEncryptResult> _encryptFileIsolate(
+    _IsolateEncryptParams params) async {
+  try {
+    final key = base64Decode(params.keyBase64);
+    final iv = base64Decode(params.ivBase64);
+    final sourceFile = File(params.sourcePath);
+    final destFile = File(params.destinationPath);
+    final totalBytes = await sourceFile.length();
+    final sink = destFile.openWrite();
+
+    if (params.useGcm) {
+      final gcm = GCMBlockCipher(AESEngine())
+        ..init(
+            true, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
+
+      final header = Uint8List(8);
+      header[0] = 0x4C;
+      header[1] = 0x4B;
+      header[2] = 0x52;
+      header[3] = 0x47;
+      header[4] = (totalBytes & 0xFF);
+      header[5] = ((totalBytes >> 8) & 0xFF);
+      header[6] = ((totalBytes >> 16) & 0xFF);
+      header[7] = ((totalBytes >> 24) & 0xFF);
+      sink.add(header);
+
+      await for (final chunk
+          in sourceFile.openRead().transform(_ChunkedStreamTransformer(1024 * 1024))) {
+        sink.add(gcm.process(Uint8List.fromList(chunk)));
+      }
+    } else {
+      final ctr = CTRStreamCipher(AESEngine())
+        ..init(true, ParametersWithIV<KeyParameter>(KeyParameter(key), iv));
+
+      final header = Uint8List(8);
+      header[0] = 0x4C;
+      header[1] = 0x4B;
+      header[2] = 0x52;
+      header[3] = 0x53;
+      header[4] = (totalBytes & 0xFF);
+      header[5] = ((totalBytes >> 8) & 0xFF);
+      header[6] = ((totalBytes >> 16) & 0xFF);
+      header[7] = ((totalBytes >> 24) & 0xFF);
+      sink.add(header);
+
+      await for (final chunk
+          in sourceFile.openRead().transform(_ChunkedStreamTransformer(1024 * 1024))) {
+        sink.add(ctr.process(Uint8List.fromList(chunk)));
+      }
+    }
+
+    await sink.flush();
+    await sink.close();
+
+    return _IsolateEncryptResult(
+      success: true,
+      encryptedSize: await destFile.length(),
+    );
+  } catch (e) {
+    return _IsolateEncryptResult(success: false, error: e.toString());
+  }
+}
+
+Future<_IsolateDecryptResult> _decryptFileIsolate(
+    _IsolateDecryptParams params) async {
+  try {
+    final key = base64Decode(params.keyBase64);
+    final iv = base64Decode(params.ivBase64);
+    final encryptedFile = File(params.encryptedPath);
+    final destFile = File(params.destinationPath);
+    final sink = destFile.openWrite();
+
+    final raf = await encryptedFile.open();
+    final header = await raf.read(8);
+    await raf.close();
+
+    if (header.length < 8) {
+      return _IsolateDecryptResult(
+          success: false, error: 'File too short to contain header');
+    }
+
+    final originalSize =
+        header[4] | (header[5] << 8) | (header[6] << 16) | (header[7] << 24);
+
+    if (params.useGcm &&
+        header[0] == 0x4C &&
+        header[1] == 0x4B &&
+        header[2] == 0x52 &&
+        header[3] == 0x47) {
+      final gcm = GCMBlockCipher(AESEngine())
+        ..init(
+            false, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
+      await for (final chunk in encryptedFile
+          .openRead(8)
+          .transform(_ChunkedStreamTransformer(1024 * 1024))) {
+        sink.add(gcm.process(Uint8List.fromList(chunk)));
+      }
+    } else if (header[0] == 0x4C &&
+        header[1] == 0x4B &&
+        header[2] == 0x52 &&
+        header[3] == 0x53) {
+      final ctr = CTRStreamCipher(AESEngine())
+        ..init(false, ParametersWithIV<KeyParameter>(KeyParameter(key), iv));
+      await for (final chunk in encryptedFile
+          .openRead(8)
+          .transform(_ChunkedStreamTransformer(1024 * 1024))) {
+        sink.add(ctr.process(Uint8List.fromList(chunk)));
+      }
+    } else {
+      await sink.close();
+      return _IsolateDecryptResult(
+          success: false, error: 'Unknown file format');
+    }
+
+    await sink.flush();
+    await sink.close();
+
+    return _IsolateDecryptResult(success: true, decryptedSize: originalSize);
+  } catch (e) {
+    return _IsolateDecryptResult(success: false, error: e.toString());
+  }
+}
+
 /// Result of data encryption
 class EncryptionResult {
   final bool success;
@@ -758,4 +1393,35 @@ class KeyRotationResult {
     this.processedCount = 0,
     this.error,
   });
+}
+
+class _ChunkedStreamTransformer extends StreamTransformerBase<List<int>, List<int>> {
+  final int chunkSize;
+
+  _ChunkedStreamTransformer(this.chunkSize);
+
+  @override
+  Stream<List<int>> bind(Stream<List<int>> stream) {
+    final controller = StreamController<List<int>>();
+    final buffer = <int>[];
+
+    stream.listen(
+      (data) {
+        buffer.addAll(data);
+        while (buffer.length >= chunkSize) {
+          controller.add(Uint8List.fromList(buffer.sublist(0, chunkSize)));
+          buffer.removeRange(0, chunkSize);
+        }
+      },
+      onDone: () {
+        if (buffer.isNotEmpty) {
+          controller.add(Uint8List.fromList(buffer));
+        }
+        controller.close();
+      },
+      onError: controller.addError,
+    );
+
+    return controller.stream;
+  }
 }
