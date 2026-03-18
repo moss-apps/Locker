@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import '../models/vaulted_file.dart';
 import '../models/album.dart';
 import 'encryption_service.dart';
+import 'compression_service.dart';
 
 /// Service for managing vaulted files storage
 class VaultService {
@@ -331,14 +332,39 @@ class VaultService {
     List<String>? albumIds,
   }) async {
     try {
+      var sourcePathToUse = sourcePath;
+
       final sourceFile = File(sourcePath);
       if (!await sourceFile.exists()) {
         debugPrint('Source file does not exist: $sourcePath');
         return null;
       }
 
-      // Ensure settings are loaded so encryption/secure-delete flags are applied
       _cachedSettings ??= await _loadSettings();
+
+      if (_cachedSettings?.compressionEnabled == true) {
+        if (type == VaultedFileType.image) {
+          final compressedPath =
+              await CompressionService.instance.compressImage(sourcePath);
+          if (compressedPath != null) {
+            sourcePathToUse = compressedPath;
+            debugPrint('[Vault] Using compressed image: $compressedPath');
+          }
+        } else if (type == VaultedFileType.video) {
+          final compressedPath =
+              await CompressionService.instance.compressVideo(sourcePath);
+          if (compressedPath != null) {
+            sourcePathToUse = compressedPath;
+            debugPrint('[Vault] Using compressed video: $compressedPath');
+          }
+        }
+      }
+
+      final sourceFileForProcessing = File(sourcePathToUse);
+      if (!await sourceFileForProcessing.exists()) {
+        debugPrint('Processed file does not exist: $sourcePathToUse');
+        return null;
+      }
 
       final directory = isDecoy
           ? await _ensureDecoyDirectory()
@@ -350,24 +376,22 @@ class VaultService {
 
       String? encryptionIv;
       int fileSize;
-      fileSize = await sourceFile.length();
+      fileSize = await sourceFileForProcessing.length();
 
-      // Use streaming for large files (>10MB) to avoid UI blocking
-      const largeFileThreshold = 10 * 1024 * 1024; // 10MB
+      const largeFileThreshold = 10 * 1024 * 1024;
       final isLargeFile = fileSize > largeFileThreshold;
 
       if (encrypt || _cachedSettings?.encryptionEnabled == true) {
-        // Encrypt the file - use streaming for large files
         FileEncryptionResult encResult;
         if (isLargeFile) {
           encResult = await _encryptionService.encryptFileStreamed(
-            sourcePath,
+            sourcePathToUse,
             vaultPath,
             isDecoy: isDecoy,
           );
         } else {
           encResult = await _encryptionService.encryptFile(
-            sourcePath,
+            sourcePathToUse,
             vaultPath,
             isDecoy: isDecoy,
           );
@@ -381,12 +405,20 @@ class VaultService {
         encryptionIv = encResult.iv;
         fileSize = encResult.originalSize ?? fileSize;
       } else {
-        // Copy file to vault without encryption
         if (isLargeFile) {
-          // Stream copy for large files to avoid blocking
-          await _streamCopyFile(sourceFile, File(vaultPath));
+          await _streamCopyFile(sourceFileForProcessing, File(vaultPath));
         } else {
-          await sourceFile.copy(vaultPath);
+          await sourceFileForProcessing.copy(vaultPath);
+        }
+      }
+
+      if (sourcePathToUse != sourcePath) {
+        try {
+          await File(sourcePathToUse).delete();
+          debugPrint(
+              '[Vault] Cleaned up compressed temp file: $sourcePathToUse');
+        } catch (e) {
+          debugPrint('[Vault] Could not delete temp compressed file: $e');
         }
       }
 
@@ -1289,7 +1321,8 @@ class VaultSettings {
   final bool autoBackup;
   final int? maxStorageMB;
   final bool decoyModeEnabled;
-  final String? decoyPin; // Separate PIN for decoy mode
+  final String? decoyPin;
+  final bool compressionEnabled;
 
   const VaultSettings({
     this.encryptionEnabled = false,
@@ -1300,6 +1333,7 @@ class VaultSettings {
     this.maxStorageMB,
     this.decoyModeEnabled = false,
     this.decoyPin,
+    this.compressionEnabled = false,
   });
 
   VaultSettings copyWith({
@@ -1311,6 +1345,7 @@ class VaultSettings {
     int? maxStorageMB,
     bool? decoyModeEnabled,
     String? decoyPin,
+    bool? compressionEnabled,
   }) {
     return VaultSettings(
       encryptionEnabled: encryptionEnabled ?? this.encryptionEnabled,
@@ -1321,6 +1356,7 @@ class VaultSettings {
       maxStorageMB: maxStorageMB ?? this.maxStorageMB,
       decoyModeEnabled: decoyModeEnabled ?? this.decoyModeEnabled,
       decoyPin: decoyPin ?? this.decoyPin,
+      compressionEnabled: compressionEnabled ?? this.compressionEnabled,
     );
   }
 
@@ -1333,6 +1369,7 @@ class VaultSettings {
         'maxStorageMB': maxStorageMB,
         'decoyModeEnabled': decoyModeEnabled,
         'decoyPin': decoyPin,
+        'compressionEnabled': compressionEnabled,
       };
 
   factory VaultSettings.fromJson(Map<String, dynamic> json) {
@@ -1348,6 +1385,7 @@ class VaultSettings {
       maxStorageMB: json['maxStorageMB'] as int?,
       decoyModeEnabled: json['decoyModeEnabled'] as bool? ?? false,
       decoyPin: json['decoyPin'] as String?,
+      compressionEnabled: json['compressionEnabled'] as bool? ?? false,
     );
   }
 }
