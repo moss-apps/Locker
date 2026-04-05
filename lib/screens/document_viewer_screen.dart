@@ -333,35 +333,49 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
         decoration: BoxDecoration(
           color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Document Information',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.lightTextPrimary,
-                fontFamily: 'ProductSans',
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Document Information',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.lightTextPrimary,
+                        fontFamily: 'ProductSans',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInfoRow('Name', widget.file.originalName),
+                    _buildInfoRow('Type', widget.file.extension.toUpperCase()),
+                    _buildInfoRow('Size', widget.file.formattedSize),
+                    _buildInfoRow('Added', widget.file.formattedDateAdded),
+                    if (widget.file.isEncrypted)
+                      _buildInfoRow('Encrypted', 'Yes'),
+                    if (_isPdf && _totalPages > 0)
+                      _buildInfoRow('Pages', _totalPages.toString()),
+                    SizedBox(height: MediaQuery.of(context).padding.bottom),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _buildInfoRow('Name', widget.file.originalName),
-            _buildInfoRow('Type', widget.file.extension.toUpperCase()),
-            _buildInfoRow('Size', widget.file.formattedSize),
-            _buildInfoRow('Added', widget.file.formattedDateAdded),
-            if (widget.file.isEncrypted) _buildInfoRow('Encrypted', 'Yes'),
-            if (_isPdf && _totalPages > 0)
-              _buildInfoRow('Pages', _totalPages.toString()),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -537,20 +551,19 @@ class _DocumentViewerScreenState extends ConsumerState<DocumentViewerScreen> {
 
     return Column(
       children: [
-        // Conversion notice banner
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          color: Colors.blue.withValues(alpha: 0.1),
+          color: context.accentColor.withValues(alpha: 0.1),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.blue, size: 20),
+              Icon(Icons.info_outline, color: context.accentColor, size: 20),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Converted from ${widget.file.extension.toUpperCase()} to PDF',
                   style: TextStyle(
                     fontFamily: 'ProductSans',
-                    color: Colors.blue.shade700,
+                    color: context.accentColor.withValues(alpha: 0.8),
                     fontSize: 13,
                   ),
                 ),

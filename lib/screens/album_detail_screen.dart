@@ -52,7 +52,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           ? null
           : FloatingActionButton.extended(
               onPressed: _showAddFilesSheet,
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               icon: const Icon(Icons.add, color: Colors.white),
               label: const Text(
                 'Add Files',
@@ -69,7 +69,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
   PreferredSizeWidget _buildAppBar(AsyncValue<Album?> albumAsync) {
     if (_isSelectionMode) {
       return AppBar(
-        backgroundColor: AppColors.accent,
+        backgroundColor: context.accentColor,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: _exitSelectionMode,
@@ -98,7 +98,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
 
     return AppBar(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      foregroundColor: AppColors.lightTextPrimary,
+      foregroundColor: context.textPrimary,
       elevation: 0,
       title: albumAsync.when(
         loading: () => const Text('Loading...'),
@@ -113,7 +113,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
       ),
       actions: [
         PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert, color: AppColors.lightTextPrimary),
+          icon: Icon(Icons.more_vert, color: context.textPrimary),
           onSelected: (value) {
             switch (value) {
               case 'sort':
@@ -160,7 +160,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
       onRefresh: () async {
         ref.invalidate(filesInAlbumProvider(widget.albumId));
       },
-      color: AppColors.accent,
+      color: context.accentColor,
       child: GridView.builder(
         padding: const EdgeInsets.all(8),
         gridDelegate: ResponsiveGridDelegate.responsive(
@@ -202,7 +202,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
-                  ? Border.all(color: AppColors.accent, width: 3)
+                  ? Border.all(color: context.accentColor, width: 3)
                   : null,
             ),
             child: ClipRRect(
@@ -219,10 +219,10 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                 height: 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isSelected ? AppColors.accent : Colors.white,
+                  color: isSelected ? context.accentColor : Colors.white,
                   border: Border.all(
                     color:
-                        isSelected ? AppColors.accent : AppColors.lightBorder,
+                        isSelected ? context.accentColor : context.borderColor,
                     width: 2,
                   ),
                 ),
@@ -310,7 +310,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     switch (file.type) {
       case VaultedFileType.image:
         icon = Icons.image;
-        color = Colors.blue;
+        color = context.accentColor;
         break;
       case VaultedFileType.video:
         icon = Icons.videocam;
@@ -393,7 +393,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
             icon: const Icon(Icons.add),
             label: const Text('Add Files'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -469,130 +469,137 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
         decoration: BoxDecoration(
           color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.borderColor,
-                borderRadius: BorderRadius.circular(2),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.insert_drive_file,
+                              size: 32, color: Colors.grey),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                file.originalName,
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: context.textPrimary,
+                                    fontFamily: 'ProductSans'),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${file.extension.toUpperCase()} • ${file.formattedSize}',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: context.textSecondary,
+                                    fontFamily: 'ProductSans'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Text('Preview not available',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: context.textSecondary,
+                            fontFamily: 'ProductSans')),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      leading: Container(
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: Colors.grey.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.insert_drive_file,
-                            size: 32, color: Colors.grey),
+                            color: context.accentColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12)),
+                        child: Icon(Icons.download_outlined,
+                            color: context.accentColor),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              file.originalName,
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: context.textPrimary,
-                                  fontFamily: 'ProductSans'),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${file.extension.toUpperCase()} • ${file.formattedSize}',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: context.textSecondary,
-                                  fontFamily: 'ProductSans'),
-                            ),
-                          ],
-                        ),
+                      title: const Text('Export to Downloads',
+                          style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontWeight: FontWeight.w500)),
+                      subtitle: Text('Save decrypted file to Downloads folder',
+                          style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontSize: 12,
+                              color: AppColors.lightTextSecondary)),
+                      contentPadding: EdgeInsets.zero,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _exportFileToDownloads(file);
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                            color: context.accentColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12)),
+                        child:
+                            Icon(Icons.open_in_new, color: context.accentColor),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Text('Preview not available',
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: context.textSecondary,
-                          fontFamily: 'ProductSans')),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    leading: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12)),
-                      child: Icon(Icons.download_outlined,
-                          color: AppColors.accent),
+                      title: const Text('Open with...',
+                          style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontWeight: FontWeight.w500)),
+                      subtitle: Text('Open file with an external app',
+                          style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontSize: 12,
+                              color: AppColors.lightTextSecondary)),
+                      contentPadding: EdgeInsets.zero,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _openWithExternalApp(file);
+                      },
                     ),
-                    title: const Text('Export to Downloads',
-                        style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            fontWeight: FontWeight.w500)),
-                    subtitle: Text('Save decrypted file to Downloads folder',
-                        style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            fontSize: 12,
-                            color: AppColors.lightTextSecondary)),
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _exportFileToDownloads(file);
-                    },
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12)),
-                      child: const Icon(Icons.open_in_new, color: Colors.blue),
-                    ),
-                    title: const Text('Open with...',
-                        style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            fontWeight: FontWeight.w500)),
-                    subtitle: Text('Open file with an external app',
-                        style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            fontSize: 12,
-                            color: AppColors.lightTextSecondary)),
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _openWithExternalApp(file);
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
+            ],
+          ),
         ),
       ),
     );
@@ -608,7 +615,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           content: Row(
             children: [
               CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation(AppColors.accent)),
+                  valueColor: AlwaysStoppedAnimation(context.accentColor)),
               const SizedBox(width: 20),
               Expanded(
                   child: Text('Exporting ${file.originalName}...',
@@ -663,7 +670,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           content: Row(
             children: [
               CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation(AppColors.accent)),
+                  valueColor: AlwaysStoppedAnimation(context.accentColor)),
               const SizedBox(width: 20),
               Expanded(
                   child: Text('Preparing ${file.originalName}...',
@@ -729,7 +736,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
             ),
             child: const Text(
@@ -831,65 +838,72 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
         decoration: BoxDecoration(
           color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.borderColor,
-                borderRadius: BorderRadius.circular(2),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sort By',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: context.textPrimary,
-                      fontFamily: 'ProductSans',
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sort By',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: context.textPrimary,
+                        fontFamily: 'ProductSans',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  ...SortOption.values.map((option) => ListTile(
-                        leading: Icon(
-                          currentSort == option
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_off,
-                          color: currentSort == option
-                              ? AppColors.accent
-                              : AppColors.lightTextTertiary,
-                        ),
-                        title: Text(
-                          option.displayName,
-                          style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            color: context.textPrimary,
+                    const SizedBox(height: 16),
+                    ...SortOption.values.map((option) => ListTile(
+                          leading: Icon(
+                            currentSort == option
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: currentSort == option
+                                ? context.accentColor
+                                : AppColors.lightTextTertiary,
                           ),
-                        ),
-                        onTap: () {
-                          ref.read(sortOptionProvider.notifier).state = option;
-                          Navigator.pop(context);
-                        },
-                        contentPadding: EdgeInsets.zero,
-                      )),
-                ],
+                          title: Text(
+                            option.displayName,
+                            style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              color: context.textPrimary,
+                            ),
+                          ),
+                          onTap: () {
+                            ref.read(sortOptionProvider.notifier).state =
+                                option;
+                            Navigator.pop(context);
+                          },
+                          contentPadding: EdgeInsets.zero,
+                        )),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
+            ],
+          ),
         ),
       ),
     );
@@ -988,7 +1002,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
                   ElevatedButton(
                     onPressed: _isLoading ? null : _addSelectedFiles,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
+                      backgroundColor: context.accentColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
@@ -1093,7 +1107,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
               color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
-                  ? Border.all(color: AppColors.accent, width: 3)
+                  ? Border.all(color: context.accentColor, width: 3)
                   : null,
             ),
             child: ClipRRect(
@@ -1110,9 +1124,9 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
               height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isSelected ? AppColors.accent : Colors.white,
+                color: isSelected ? context.accentColor : Colors.white,
                 border: Border.all(
-                  color: isSelected ? AppColors.accent : AppColors.lightBorder,
+                  color: isSelected ? context.accentColor : context.borderColor,
                   width: 2,
                 ),
               ),
@@ -1184,7 +1198,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
     switch (file.type) {
       case VaultedFileType.image:
         icon = Icons.image;
-        color = Colors.blue;
+        color = context.accentColor;
         break;
       case VaultedFileType.video:
         icon = Icons.videocam;
@@ -1192,7 +1206,7 @@ class _AddFilesToAlbumSheetState extends ConsumerState<_AddFilesToAlbumSheet> {
         break;
       case VaultedFileType.document:
         icon = Icons.description;
-        color = Colors.orange;
+        color = Colors.green;
         break;
       case VaultedFileType.other:
         icon = Icons.insert_drive_file;
