@@ -123,34 +123,37 @@ class ConversionWarningDialog extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Info button
-          InkWell(
-            onTap: () => _showWhyConversionDialog(context),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Colors.blue,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Why is this needed?',
-                    style: TextStyle(
-                      fontFamily: 'ProductSans',
-                      color: Colors.blue,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+          Builder(
+            builder: (context) => InkWell(
+              onTap: () => _showWhyConversionDialog(context),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: context.accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: context.accentColor,
+                      size: 18,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Text(
+                      'Why is this needed?',
+                      style: TextStyle(
+                        fontFamily: 'ProductSans',
+                        color: context.accentColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
