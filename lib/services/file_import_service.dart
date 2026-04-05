@@ -421,11 +421,10 @@ class FileImportService {
       }
 
       // Pick videos using file_picker for multiple selection
-      final result =
-          await AutoKillService.runSafe(() => FilePicker.platform.pickFiles(
-                type: FileType.video,
-                allowMultiple: true,
-              ));
+      final result = await AutoKillService.runSafe(() => FilePicker.pickFiles(
+            type: FileType.video,
+            allowMultiple: true,
+          ));
 
       if (result == null || result.files.isEmpty) {
         return ImportResult(
@@ -701,12 +700,11 @@ class FileImportService {
   }) async {
     try {
       // Pick documents
-      final result =
-          await AutoKillService.runSafe(() => FilePicker.platform.pickFiles(
-                type: FileType.custom,
-                allowedExtensions: supportedDocumentExtensions,
-                allowMultiple: true,
-              ));
+      final result = await AutoKillService.runSafe(() => FilePicker.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: supportedDocumentExtensions,
+            allowMultiple: true,
+          ));
 
       if (result == null || result.files.isEmpty) {
         return ImportResult(
@@ -1160,11 +1158,10 @@ class FileImportService {
   }) async {
     try {
       // Pick any files
-      final result =
-          await AutoKillService.runSafe(() => FilePicker.platform.pickFiles(
-                type: FileType.any,
-                allowMultiple: true,
-              ));
+      final result = await AutoKillService.runSafe(() => FilePicker.pickFiles(
+            type: FileType.any,
+            allowMultiple: true,
+          ));
 
       if (result == null || result.files.isEmpty) {
         return ImportResult(
@@ -1273,11 +1270,10 @@ class FileImportService {
       }
 
       // Pick media files (images and videos)
-      final result =
-          await AutoKillService.runSafe(() => FilePicker.platform.pickFiles(
-                type: FileType.media,
-                allowMultiple: true,
-              ));
+      final result = await AutoKillService.runSafe(() => FilePicker.pickFiles(
+            type: FileType.media,
+            allowMultiple: true,
+          ));
 
       if (result == null || result.files.isEmpty) {
         return ImportResult(

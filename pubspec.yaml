@@ -31,7 +31,7 @@ dependencies:
   crypto: ^3.0.7
   cupertino_icons: ^1.0.6
   encrypt: ^5.0.3
-  file_picker: ^10.3.7
+  file_picker: ^11.0.1
   flutter:
     sdk: flutter
   flutter_bicubic_resize: ^1.4.0
@@ -52,7 +52,7 @@ dependencies:
   photo_view: ^0.15.0
   pointycastle: ^3.6.2
   shared_preferences: ^2.5.4
-  syncfusion_flutter_pdf: ^32.1.19
+  syncfusion_flutter_pdf: ^33.1.46
   uuid: ^4.5.2
   video_player: ^2.10.1
   xml: ^6.6.1
@@ -79,12 +79,12 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/padlock.png
-    - assets/hamster.png
-    - assets/hamsterjpg.jpg
-    - assets/hamster_mouse.png
     - assets/otherfiles_icon.png
     - assets/picture_icon.png
     - assets/video_icon.png
+    - assets/locker_logo_bg.png
+    - assets/locker_logo_nobg.png
+    - assets/locker_logo_nobg.svg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
   # For details regarding adding assets from package dependencies, see
