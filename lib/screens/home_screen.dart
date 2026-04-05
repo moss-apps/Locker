@@ -1,6 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:local_auth/local_auth.dart';
 import '../services/auth_service.dart';
+import '../themes/app_colors.dart';
 import '../utils/toast_utils.dart';
 import 'gallery_vault_screen.dart';
 
@@ -227,85 +230,265 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Loading...'),
-            ],
-          ),
+        backgroundColor: context.backgroundColor,
+        body: Stack(
+          children: [
+            _buildBackground(),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: context.accentColor,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading...',
+                    style: TextStyle(
+                      fontFamily: 'ProductSans',
+                      color: context.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // App Logo/Title
-              Image.asset(
-                'assets/padlock.png',
-                width: 100,
-                height: 100,
+      backgroundColor: context.backgroundColor,
+      body: Stack(
+        children: [
+          _buildBackground(),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Spacer(),
+                  _buildLogo(),
+                  const SizedBox(height: 24),
+                  _buildTitle(),
+                  const SizedBox(height: 12),
+                  _buildSubtitle(),
+                  const SizedBox(height: 48),
+                  _buildPasswordFields(),
+                  const SizedBox(height: 24),
+                  _buildPrimaryButton(),
+                  if (!_isFirstTime &&
+                      _isBiometricAvailable &&
+                      _isBiometricEnabled)
+                    _buildBiometricSection(),
+                  if (_isFirstTime) _buildHelperText(),
+                  const Spacer(),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Locker',
-                style: Theme.of(context).textTheme.headlineLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _isFirstTime
-                    ? 'Create your secure password'
-                    : 'Enter your password to continue',
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 48),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              // Password Input
+  Widget _buildBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: context.isDarkMode
+              ? [
+                  const Color(0xFF0F0F12),
+                  const Color(0xFF1A1A2E),
+                  const Color(0xFF16213E),
+                ]
+              : [
+                  const Color(0xFFE8EEF5),
+                  const Color(0xFFF5F7FA),
+                  const Color(0xFFE4E9F2),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogo() {
+    return Center(
+      child: Container(
+        width: 120,
+        height: 120,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: context.isDarkMode
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.white.withValues(alpha: 0.15),
+          border: Border.all(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.2),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: context.accentColor.withValues(alpha: 0.2),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: SvgPicture.asset(
+                'assets/locker_logo_nobg.svg',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitle() {
+    return Text(
+      'Locker',
+      style: TextStyle(
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+        color: context.textPrimary,
+        fontFamily: 'ProductSans',
+        letterSpacing: -0.5,
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  Widget _buildSubtitle() {
+    return Text(
+      _isFirstTime
+          ? 'Create your secure password'
+          : 'Enter your password to continue',
+      style: TextStyle(
+        fontSize: 16,
+        color: context.textSecondary,
+        fontFamily: 'ProductSans',
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  Widget _buildPasswordFields() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            children: [
               TextField(
                 controller: _passwordController,
                 obscureText: !_isPasswordVisible,
+                style: TextStyle(
+                  fontFamily: 'ProductSans',
+                  fontSize: 16,
+                  color: context.textPrimary,
+                ),
                 decoration: InputDecoration(
                   labelText: _isFirstTime ? 'Create Password' : 'Password',
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  labelStyle: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textSecondary,
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.03),
+                  prefixIcon: Icon(
+                    Icons.lock_outline,
+                    color: context.textTertiary,
+                  ),
                   suffixIcon: IconButton(
-                    icon: Icon(_isPasswordVisible
-                        ? Icons.visibility_off
-                        : Icons.visibility),
+                    icon: Icon(
+                      _isPasswordVisible
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: context.textTertiary,
+                    ),
                     onPressed: () {
                       setState(() {
                         _isPasswordVisible = !_isPasswordVisible;
                       });
                     },
                   ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: context.accentColor, width: 2),
+                  ),
                 ),
                 onSubmitted: _isFirstTime
                     ? null
                     : (value) => _authenticateWithPassword(),
               ),
-              const SizedBox(height: 16),
-
-              // Confirm Password Input (only for first time)
               if (_isFirstTime) ...[
+                const SizedBox(height: 16),
                 TextField(
                   controller: _confirmPasswordController,
                   obscureText: !_isConfirmPasswordVisible,
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    fontSize: 16,
+                    color: context.textPrimary,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
-                    prefixIcon: const Icon(Icons.lock_outline),
+                    labelStyle: TextStyle(
+                      fontFamily: 'ProductSans',
+                      color: context.textSecondary,
+                    ),
+                    filled: true,
+                    fillColor: context.isDarkMode
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.03),
+                    prefixIcon: Icon(
+                      Icons.lock_outline,
+                      color: context.textTertiary,
+                    ),
                     suffixIcon: IconButton(
-                      icon: Icon(_isConfirmPasswordVisible
-                          ? Icons.visibility_off
-                          : Icons.visibility),
+                      icon: Icon(
+                        _isConfirmPasswordVisible
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: context.textTertiary,
+                      ),
                       onPressed: () {
                         setState(() {
                           _isConfirmPasswordVisible =
@@ -313,63 +496,182 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         });
                       },
                     ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          BorderSide(color: context.accentColor, width: 2),
+                    ),
                   ),
                   onSubmitted: (value) => _createPassword(),
                 ),
-                const SizedBox(height: 32),
-              ] else ...[
-                const SizedBox(height: 32),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-              // Primary Action Button
-              ElevatedButton(
-                onPressed:
-                    _isFirstTime ? _createPassword : _authenticateWithPassword,
-                child: Padding(
+  Widget _buildPrimaryButton() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed:
+            _isFirstTime ? _createPassword : _authenticateWithPassword,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Text(
+          _isFirstTime ? 'Create Password' : 'Unlock',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'ProductSans',
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBiometricSection() {
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: Divider(
+                color: context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.1),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'OR',
+                style: TextStyle(
+                  fontFamily: 'ProductSans',
+                  color: context.textTertiary,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Divider(
+                color: context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.1),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                color: context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: context.isDarkMode
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: OutlinedButton.icon(
+                onPressed: _authenticateWithBiometrics,
+                style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    _isFirstTime ? 'Create Password' : 'Unlock',
-                    style: const TextStyle(fontSize: 16),
+                  side: BorderSide.none,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: Icon(
+                  _getBiometricIcon(),
+                  color: context.accentColor,
+                ),
+                label: Text(
+                  'Use $_biometricDisplayName',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontFamily: 'ProductSans',
+                    color: context.textPrimary,
                   ),
                 ),
               ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-              // Biometric Authentication Button (only if available and not first time)
-              if (!_isFirstTime &&
-                  _isBiometricAvailable &&
-                  _isBiometricEnabled) ...[
-                const SizedBox(height: 16),
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('OR'),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _authenticateWithBiometrics,
-                  icon: Icon(_getBiometricIcon()),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text('Use $_biometricDisplayName'),
-                  ),
-                ),
-              ],
-
-              // Helper Text
-              if (_isFirstTime) ...[
-                const SizedBox(height: 24),
-                Text(
-                  'Your password will be securely encrypted and stored locally on your device.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
+  Widget _buildHelperText() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 32),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.03)
+                  : Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.15),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              'Your password will be securely encrypted and stored locally on your device.',
+              style: TextStyle(
+                fontSize: 13,
+                color: context.textSecondary,
+                fontFamily: 'ProductSans',
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       ),

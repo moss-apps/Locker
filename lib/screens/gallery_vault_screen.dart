@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/vaulted_file.dart';
@@ -25,6 +27,9 @@ import 'document_picker_screen.dart';
 import 'package:photo_manager/photo_manager.dart' hide AlbumType;
 import 'camera_screen.dart';
 import 'local_backup_screen.dart';
+import 'change_security_screen.dart';
+import 'accent_color_picker_screen.dart';
+import '../widgets/operation_progress_sheet.dart';
 
 /// Gallery vault screen - main screen after authentication
 class GalleryVaultScreen extends ConsumerStatefulWidget {
@@ -102,7 +107,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       bool isSelectionMode, Set<String> selectedFiles) {
     if (isSelectionMode) {
       return AppBar(
-        backgroundColor: AppColors.accent,
+        backgroundColor: context.accentColor,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: _exitSelectionMode,
@@ -265,7 +270,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
   Widget _buildImportProgress() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: AppColors.accent.withValues(alpha: 0.1),
+      color: context.accentColor.withValues(alpha: 0.1),
       child: Row(
         children: [
           SizedBox(
@@ -273,15 +278,17 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             height: 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation(AppColors.accent),
-              value: _importTotal > 0 ? _importProgress / _importTotal : null,
+              valueColor: AlwaysStoppedAnimation(context.accentColor),
+              value: _importTotal > 0
+                  ? (_importProgress / _importTotal).clamp(0.0, 1.0)
+                  : null,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _importTotal > 0
-                  ? 'Importing... $_importProgress / $_importTotal'
+                  ? 'Importing... ${_importProgress.clamp(0, _importTotal)} / $_importTotal'
                   : 'Importing...',
               style: TextStyle(
                 fontFamily: 'ProductSans',
@@ -306,9 +313,9 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       ),
       child: TabBar(
         controller: _tabController,
-        labelColor: AppColors.accent,
+        labelColor: context.accentColor,
         unselectedLabelColor: AppColors.lightTextTertiary,
-        indicatorColor: AppColors.accent,
+        indicatorColor: context.accentColor,
         indicatorWeight: 3,
         isScrollable: true,
         labelStyle: const TextStyle(
@@ -375,7 +382,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     return filesAsync.when(
       loading: () => Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation(AppColors.accent),
+          valueColor: AlwaysStoppedAnimation(context.accentColor),
         ),
       ),
       error: (error, stack) => Center(
@@ -438,7 +445,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           onRefresh: () async {
             await ref.read(vaultNotifierProvider.notifier).refresh();
           },
-          color: AppColors.accent,
+          color: context.accentColor,
           child: GridView.builder(
             padding: const EdgeInsets.all(8),
             gridDelegate: ResponsiveGridDelegate.responsive(
@@ -492,7 +499,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
-                  ? Border.all(color: AppColors.accent, width: 3)
+                  ? Border.all(color: context.accentColor, width: 3)
                   : null,
             ),
             child: ClipRRect(
@@ -510,10 +517,10 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 height: 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isSelected ? AppColors.accent : Colors.white,
+                  color: isSelected ? context.accentColor : Colors.white,
                   border: Border.all(
                     color:
-                        isSelected ? AppColors.accent : AppColors.lightBorder,
+                        isSelected ? context.accentColor : context.borderColor,
                     width: 2,
                   ),
                 ),
@@ -711,7 +718,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     switch (file.type) {
       case VaultedFileType.image:
         icon = Icons.image;
-        color = Colors.blue;
+        color = context.accentColor;
         break;
       case VaultedFileType.video:
         icon = Icons.videocam;
@@ -777,7 +784,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         return Colors.red;
       case 'doc':
       case 'docx':
-        return Colors.blue;
+        return context.accentColor;
       case 'xls':
       case 'xlsx':
         return Colors.green;
@@ -787,7 +794,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       case 'txt':
         return Colors.grey;
       default:
-        return Colors.blueGrey;
+        return context.accentColor;
     }
   }
 
@@ -944,12 +951,12 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.1),
+                        color: context.accentColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         Icons.download_outlined,
-                        color: AppColors.accent,
+                        color: context.accentColor,
                       ),
                     ),
                     title: const Text(
@@ -980,12 +987,12 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
+                        color: context.accentColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.open_in_new,
-                        color: Colors.blue,
+                        color: context.accentColor,
                       ),
                     ),
                     title: const Text(
@@ -1067,7 +1074,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           content: Row(
             children: [
               CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppColors.accent),
+                valueColor: AlwaysStoppedAnimation(context.accentColor),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -1131,7 +1138,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           content: Row(
             children: [
               CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppColors.accent),
+                valueColor: AlwaysStoppedAnimation(context.accentColor),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -1206,7 +1213,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               'Close',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.accent,
+                color: context.accentColor,
               ),
             ),
           ),
@@ -1290,7 +1297,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         return Colors.green;
       case 'exe':
       case 'msi':
-        return Colors.blue;
+        return context.accentColor;
       case 'mp3':
       case 'wav':
       case 'flac':
@@ -1343,68 +1350,135 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     }
 
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: context.backgroundSecondary,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 64, color: AppColors.lightTextTertiary),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: context.textPrimary,
-              fontFamily: 'ProductSans',
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 14,
-              color: context.textSecondary,
-              fontFamily: 'ProductSans',
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _showImportDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('Add Files'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.white.withValues(alpha: 0.15),
+                border: Border.all(
+                  color: context.isDarkMode
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Icon(
+                    icon,
+                    size: 72,
+                    color: context.accentColor.withValues(alpha: 0.6),
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 32),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: context.textPrimary,
+                fontFamily: 'ProductSans',
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 15,
+                color: context.textSecondary,
+                fontFamily: 'ProductSans',
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    context.accentColor,
+                    context.accentColor.withValues(alpha: 0.8),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: context.accentColor.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _showImportDialog,
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text(
+                  'Add Files',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildFAB() {
-    return FloatingActionButton.extended(
-      onPressed: _showImportDialog,
-      backgroundColor: AppColors.accent,
-      icon: const Icon(Icons.add, color: Colors.white),
-      label: const Text(
-        'Import',
-        style: TextStyle(
-          fontFamily: 'ProductSans',
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: FloatingActionButton.extended(
+        onPressed: _showImportDialog,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Import',
+          style: TextStyle(
+            fontFamily: 'ProductSans',
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            fontSize: 15,
+          ),
         ),
       ),
     );
@@ -1412,135 +1486,261 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
   Widget _buildDrawer() {
     return Drawer(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      backgroundColor: Colors.transparent,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(0),
+          bottomRight: Radius.circular(0),
+        ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
             decoration: BoxDecoration(
-              color: AppColors.accent,
+              color: context.isDarkMode
+                  ? Colors.black.withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.7),
+              border: Border(
+                right: BorderSide(
+                  color: context.isDarkMode
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.1),
+                  width: 1,
+                ),
+              ),
             ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+            child: Column(
+              children: [
+                _buildDrawerHeader(),
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      _buildDrawerItem(
+                        icon: Icons.folder_outlined,
+                        title: 'Albums',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const AlbumsScreen()),
+                          );
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.favorite_outline,
+                        title: 'Favorites',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const FavoritesScreen()),
+                          );
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.label_outline,
+                        title: 'Tags',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const TagsScreen()),
+                          );
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        child: Divider(
+                          color: context.isDarkMode
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.black.withValues(alpha: 0.1),
+                          thickness: 1,
+                        ),
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.security,
+                        title: 'Security Settings',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showSettingsSheet();
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.shield_outlined,
+                        title: 'Decoy Mode',
+                        subtitle: 'Set up fake vault',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showDecoyModeSheet();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: SvgPicture.asset(
+                    'assets/locker_logo_nobg.svg',
+                    fit: BoxFit.contain,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Locker',
+              style: TextStyle(
+                fontFamily: 'ProductSans',
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Consumer(
+              builder: (context, ref, _) {
+                final storageAsync = ref.watch(formattedStorageProvider);
+                final countAsync = ref.watch(fileCountSummaryProvider);
+
+                return Text(
+                  '${countAsync.value ?? '...'} • ${storageAsync.value ?? '...'}',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 14,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
                 children: [
                   Container(
-                    width: 64,
-                    height: 64,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(16),
+                      color: context.accentColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Image.asset(
-                      'assets/padlock.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Locker',
-                    style: TextStyle(
-                      fontFamily: 'ProductSans',
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+                    child: Icon(
+                      icon,
+                      color: context.accentColor,
+                      size: 22,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final storageAsync = ref.watch(formattedStorageProvider);
-                      final countAsync = ref.watch(fileCountSummaryProvider);
-
-                      return Text(
-                        '${countAsync.value ?? '...'} • ${storageAsync.value ?? '...'}',
-                        style: TextStyle(
-                          fontFamily: 'ProductSans',
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 14,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontFamily: 'ProductSans',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: context.textPrimary,
+                          ),
                         ),
-                      );
-                    },
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontSize: 12,
+                              color: context.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: context.textTertiary,
+                    size: 20,
                   ),
                 ],
               ),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.folder_outlined),
-            title: const Text(
-              'Albums',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AlbumsScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.favorite_outline),
-            title: const Text(
-              'Favorites',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const FavoritesScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.label_outline),
-            title: const Text(
-              'Tags',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TagsScreen()),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.security),
-            title: const Text(
-              'Security Settings',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _showSettingsSheet();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.shield_outlined),
-            title: const Text(
-              'Decoy Mode',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            subtitle: const Text(
-              'Set up fake vault',
-              style: TextStyle(fontFamily: 'ProductSans', fontSize: 12),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _showDecoyModeSheet();
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1606,7 +1806,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                               ? Icons.radio_button_checked
                               : Icons.radio_button_off,
                           color: currentSort == option
-                              ? AppColors.accent
+                              ? context.accentColor
                               : AppColors.lightTextTertiary,
                         ),
                         title: Text(
@@ -1684,7 +1884,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                               .map((album) => ListTile(
                                     leading: Icon(
                                       Icons.folder_outlined,
-                                      color: AppColors.accent,
+                                      color: context.accentColor,
                                     ),
                                     title: Text(
                                       album.name,
@@ -1806,12 +2006,13 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: AppColors.accent),
+                              borderSide:
+                                  BorderSide(color: context.accentColor),
                             ),
                             prefixIcon: Icon(Icons.label_outline,
                                 color: AppColors.lightTextSecondary),
                             suffixIcon: IconButton(
-                              icon: Icon(Icons.add, color: AppColors.accent),
+                              icon: Icon(Icons.add, color: context.accentColor),
                               onPressed: () async {
                                 final tag = tagController.text.trim();
                                 if (tag.isEmpty) return;
@@ -2023,7 +2224,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               'Unhide',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.accent,
+                color: context.accentColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -2033,25 +2234,56 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     );
 
     if (confirmed == true) {
-      setState(() {
-        _isImporting = true;
-        _importProgress = 0;
-        _importTotal = selectedFiles.length;
-      });
+      final progressState = ValueNotifier<OperationProgressState>(
+        OperationProgressState(
+          totalFiles: selectedFiles.length,
+          currentFile: 0,
+          currentFileName: 'Preparing...',
+          totalSizeBytes: 0,
+          processedSizeBytes: 0,
+          statusMessage: 'Starting...',
+          isProcessing: true,
+        ),
+      );
+
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isDismissible: false,
+        enableDrag: false,
+        builder: (context) => ValueListenableBuilder<OperationProgressState>(
+          valueListenable: progressState,
+          builder: (context, state, _) => OperationProgressSheet(
+            operationType: OperationType.unhide,
+            totalFiles: state.totalFiles,
+            currentFile: state.currentFile,
+            currentFileName: state.currentFileName,
+            totalSizeBytes: state.totalSizeBytes,
+            processedSizeBytes: state.processedSizeBytes,
+            statusMessage: state.statusMessage,
+            isProcessing: state.isProcessing,
+            isComplete: state.isComplete,
+          ),
+        ),
+      );
 
       final result = await _importService.unhideFiles(
         fileIds: selectedFiles.toList(),
         removeFromVault: true,
-        onProgress: (current, total) {
-          setState(() {
-            _importProgress = current;
-            _importTotal = total;
-          });
+        onProgress: (current, total, {int? currentSize, int? totalSize}) {
+          progressState.value = progressState.value.copyWith(
+            currentFile: current,
+            totalSizeBytes: totalSize ?? 0,
+            processedSizeBytes: currentSize ?? 0,
+            statusMessage: 'Processing file $current of $total...',
+          );
         },
       );
 
-      setState(() => _isImporting = false);
       _exitSelectionMode();
+
+      if (!mounted) return;
 
       if (result.success && result.unhiddenCount > 0) {
         ToastUtils.showSuccess(result.message ?? 'Files restored to gallery');
@@ -2059,6 +2291,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       } else if (!result.success) {
         ToastUtils.showError(result.error ?? 'Failed to unhide files');
       }
+
+      Navigator.pop(context); // Close progress sheet
     }
   }
 
@@ -2107,61 +2341,46 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     );
 
     if (confirmed == true) {
-      // Check if still mounted after async gap
       if (!mounted) return;
 
-      // Use a Completer to ensure dialog is shown before starting delete operation
-      final dialogContext = Completer<BuildContext>();
-
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) {
-          // Complete with the dialog's context once it's built
-          if (!dialogContext.isCompleted) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!dialogContext.isCompleted) {
-                dialogContext.complete(ctx);
-              }
-            });
-          }
-          return PopScope(
-            canPop: false,
-            child: AlertDialog(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation(AppColors.accent),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Deleting ${selectedFiles.length} file(s)...',
-                    style: TextStyle(
-                      fontFamily: 'ProductSans',
-                      color: context.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+      final progressState = ValueNotifier<OperationProgressState>(
+        OperationProgressState(
+          totalFiles: selectedFiles.length,
+          currentFile: 0,
+          currentFileName: 'Preparing...',
+          totalSizeBytes: 0,
+          processedSizeBytes: 0,
+          statusMessage: 'Starting...',
+          isProcessing: true,
+        ),
       );
 
-      // Wait for the dialog to be fully rendered before starting the delete operation
-      await dialogContext.future;
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isDismissible: false,
+        enableDrag: false,
+        builder: (context) => ValueListenableBuilder<OperationProgressState>(
+          valueListenable: progressState,
+          builder: (context, state, _) => OperationProgressSheet(
+            operationType: OperationType.delete,
+            totalFiles: state.totalFiles,
+            currentFile: state.currentFile,
+            currentFileName: state.currentFileName,
+            totalSizeBytes: state.totalSizeBytes,
+            processedSizeBytes: state.processedSizeBytes,
+            statusMessage: state.statusMessage,
+            isProcessing: state.isProcessing,
+            isComplete: state.isComplete,
+          ),
+        ),
+      );
 
       final success = await ref
           .read(vaultNotifierProvider.notifier)
           .deleteFiles(selectedFiles.toList());
 
-      // Close loading dialog
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
 
       _exitSelectionMode();
 
@@ -2170,6 +2389,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       } else {
         ToastUtils.showError('Failed to delete some files');
       }
+
+      Navigator.pop(context); // Close progress sheet
     }
   }
 
@@ -2177,164 +2398,173 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Consumer(
-        builder: (context, ref, _) {
-          final settingsAsync = ref.watch(vaultSettingsProvider);
-
-          return Container(
-            decoration: BoxDecoration(
-              color: context.backgroundColor,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: context.borderColor,
-                    borderRadius: BorderRadius.circular(2),
+      isScrollControlled: true,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        decoration: BoxDecoration(
+          color: context.backgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Consumer(
+          builder: (context, ref, _) {
+            final settingsAsync = ref.watch(vaultSettingsProvider);
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: context.borderColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Security Settings',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: context.textPrimary,
-                          fontFamily: 'ProductSans',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ListTile(
-                        leading: Icon(Icons.backup_outlined,
-                            color: AppColors.accent),
-                        title: const Text(
-                          'Local backup',
-                          style: TextStyle(fontFamily: 'ProductSans'),
-                        ),
-                        subtitle: Text(
-                          'Save vault as ZIP to a folder',
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Security Settings',
                           style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: context.textPrimary,
                             fontFamily: 'ProductSans',
-                            fontSize: 12,
-                            color: context.textTertiary,
                           ),
                         ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LocalBackupScreen(),
-                            ),
-                          );
-                        },
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildThemeToggle(context, ref),
-                      const SizedBox(height: 16),
-                      settingsAsync.when(
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (_, __) => const Text('Failed to load settings'),
-                        data: (settings) => Column(
-                          children: [
-                            SwitchListTile(
-                              title: const Text(
-                                'Encrypt New Files',
-                                style: TextStyle(fontFamily: 'ProductSans'),
-                              ),
-                              subtitle: Text(
-                                'AES-256 encryption for all new imports',
-                                style: TextStyle(
+                        const SizedBox(height: 16),
+                        ListTile(
+                          leading: Icon(Icons.security_outlined,
+                              color: context.accentColor),
+                          title: const Text('Change Security',
+                              style: TextStyle(fontFamily: 'ProductSans')),
+                          subtitle: Text('Change password, PIN, or biometric',
+                              style: TextStyle(
                                   fontFamily: 'ProductSans',
                                   fontSize: 12,
-                                  color: context.textTertiary,
-                                ),
-                              ),
-                              value: settings.encryptionEnabled,
-                              onChanged: (value) async {
-                                await ref
-                                    .read(vaultServiceProvider)
-                                    .updateSettings(settings.copyWith(
-                                      encryptionEnabled: value,
-                                    ));
-                                ref.invalidate(vaultSettingsProvider);
-                              },
-                              activeThumbColor: AppColors.accent,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            SwitchListTile(
-                              title: const Text(
-                                'Secure Delete',
-                                style: TextStyle(fontFamily: 'ProductSans'),
-                              ),
-                              subtitle: Text(
-                                'Overwrite files before deletion',
-                                style: TextStyle(
-                                  fontFamily: 'ProductSans',
-                                  fontSize: 12,
-                                  color: context.textTertiary,
-                                ),
-                              ),
-                              value: settings.secureDelete,
-                              onChanged: (value) async {
-                                await ref
-                                    .read(vaultServiceProvider)
-                                    .updateSettings(settings.copyWith(
-                                      secureDelete: value,
-                                    ));
-                                ref.invalidate(vaultSettingsProvider);
-                              },
-                              activeThumbColor: AppColors.accent,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            SwitchListTile(
-                              title: const Text(
-                                'Compress Media',
-                                style: TextStyle(fontFamily: 'ProductSans'),
-                              ),
-                              subtitle: Text(
-                                'Reduce file size for images and videos',
-                                style: TextStyle(
-                                  fontFamily: 'ProductSans',
-                                  fontSize: 12,
-                                  color: context.textTertiary,
-                                ),
-                              ),
-                              value: settings.compressionEnabled,
-                              onChanged: (value) async {
-                                await ref
-                                    .read(vaultServiceProvider)
-                                    .updateSettings(settings.copyWith(
-                                      compressionEnabled: value,
-                                    ));
-                                ref.invalidate(vaultSettingsProvider);
-                              },
-                              activeThumbColor: AppColors.accent,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ],
+                                  color: context.textTertiary)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ChangeSecurityScreen()));
+                          },
+                          contentPadding: EdgeInsets.zero,
                         ),
-                      ),
-                    ],
+                        ListTile(
+                          leading: Icon(Icons.backup_outlined,
+                              color: context.accentColor),
+                          title: const Text('Local backup',
+                              style: TextStyle(fontFamily: 'ProductSans')),
+                          subtitle: Text('Save vault as ZIP to a folder',
+                              style: TextStyle(
+                                  fontFamily: 'ProductSans',
+                                  fontSize: 12,
+                                  color: context.textTertiary)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const LocalBackupScreen()));
+                          },
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildThemeToggle(context, ref),
+                        const SizedBox(height: 8),
+                        _buildAccentColorOption(context, ref),
+                        const SizedBox(height: 16),
+                        settingsAsync.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (_, __) =>
+                              const Text('Failed to load settings'),
+                          data: (settings) => Column(
+                            children: [
+                              SwitchListTile(
+                                title: const Text('Encrypt New Files',
+                                    style:
+                                        TextStyle(fontFamily: 'ProductSans')),
+                                subtitle: Text(
+                                    'AES-256 encryption for all new imports',
+                                    style: TextStyle(
+                                        fontFamily: 'ProductSans',
+                                        fontSize: 12,
+                                        color: context.textTertiary)),
+                                value: settings.encryptionEnabled,
+                                onChanged: (value) async {
+                                  await ref
+                                      .read(vaultServiceProvider)
+                                      .updateSettings(settings.copyWith(
+                                          encryptionEnabled: value));
+                                  ref.invalidate(vaultSettingsProvider);
+                                },
+                                activeThumbColor: context.accentColor,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              SwitchListTile(
+                                title: const Text('Secure Delete',
+                                    style:
+                                        TextStyle(fontFamily: 'ProductSans')),
+                                subtitle: Text(
+                                    'Overwrite files before deletion',
+                                    style: TextStyle(
+                                        fontFamily: 'ProductSans',
+                                        fontSize: 12,
+                                        color: context.textTertiary)),
+                                value: settings.secureDelete,
+                                onChanged: (value) async {
+                                  await ref
+                                      .read(vaultServiceProvider)
+                                      .updateSettings(settings.copyWith(
+                                          secureDelete: value));
+                                  ref.invalidate(vaultSettingsProvider);
+                                },
+                                activeThumbColor: context.accentColor,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              SwitchListTile(
+                                title: const Text('Compress Media',
+                                    style:
+                                        TextStyle(fontFamily: 'ProductSans')),
+                                subtitle: Text(
+                                    'Reduce file size for images and videos',
+                                    style: TextStyle(
+                                        fontFamily: 'ProductSans',
+                                        fontSize: 12,
+                                        color: context.textTertiary)),
+                                value: settings.compressionEnabled,
+                                onChanged: (value) async {
+                                  await ref
+                                      .read(vaultServiceProvider)
+                                      .updateSettings(settings.copyWith(
+                                          compressionEnabled: value));
+                                  ref.invalidate(vaultSettingsProvider);
+                                },
+                                activeThumbColor: context.accentColor,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                SizedBox(height: MediaQuery.of(context).padding.bottom),
-              ],
-            ),
-          );
-        },
+                  SizedBox(height: MediaQuery.of(context).padding.bottom),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -2364,6 +2594,57 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         ref.read(themeModeProvider.notifier).toggleTheme();
       },
       activeThumbColor: context.accentColor,
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+
+  Widget _buildAccentColorOption(BuildContext context, WidgetRef ref) {
+    final accentColor = ref.watch(accentColorProvider);
+
+    return ListTile(
+      leading: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              accentColor.getColor(
+                  context.isDarkMode ? Brightness.dark : Brightness.light),
+              accentColor.getVariantColor(
+                  context.isDarkMode ? Brightness.dark : Brightness.light),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.2)
+                : Colors.black.withValues(alpha: 0.1),
+            width: 1.5,
+          ),
+        ),
+      ),
+      title: const Text(
+        'Accent Color',
+        style: TextStyle(fontFamily: 'ProductSans'),
+      ),
+      subtitle: Text(
+        accentColor.name,
+        style: TextStyle(
+          fontFamily: 'ProductSans',
+          fontSize: 12,
+          color: context.textTertiary,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AccentColorPickerScreen(),
+          ),
+        );
+      },
       contentPadding: EdgeInsets.zero,
     );
   }
@@ -2401,7 +2682,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.shield_outlined, color: AppColors.accent),
+                          Icon(Icons.shield_outlined,
+                              color: context.accentColor),
                           const SizedBox(width: 8),
                           Text(
                             'Decoy Mode',
@@ -2446,7 +2728,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                 }
                                 ref.invalidate(decoySettingsProvider);
                               },
-                              activeThumbColor: AppColors.accent,
+                              activeThumbColor: context.accentColor,
                               contentPadding: EdgeInsets.zero,
                             ),
                             if (settings.isEnabled) ...[
@@ -2537,7 +2819,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.accent),
+                  borderSide: BorderSide(color: context.accentColor),
                 ),
               ),
             ),
@@ -2574,7 +2856,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
             ),
             child: const Text(
@@ -2607,24 +2889,55 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       return;
     }
 
-    setState(() {
-      _isImporting = true;
-      _importProgress = 0;
-      _importTotal = selectedAssets.length;
-    });
+    final progressState = ValueNotifier<OperationProgressState>(
+      OperationProgressState(
+        totalFiles: selectedAssets.length,
+        currentFile: 0,
+        currentFileName: 'Preparing...',
+        totalSizeBytes: 0,
+        processedSizeBytes: 0,
+        statusMessage: 'Starting...',
+        isProcessing: true,
+      ),
+    );
+
+    // Show progress sheet
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (context) => ValueListenableBuilder<OperationProgressState>(
+        valueListenable: progressState,
+        builder: (context, state, _) => OperationProgressSheet(
+          operationType: OperationType.hide,
+          totalFiles: state.totalFiles,
+          currentFile: state.currentFile,
+          currentFileName: state.currentFileName,
+          totalSizeBytes: state.totalSizeBytes,
+          processedSizeBytes: state.processedSizeBytes,
+          statusMessage: state.statusMessage,
+          isProcessing: state.isProcessing,
+          isComplete: state.isComplete,
+        ),
+      ),
+    );
 
     final result = await _importService.importFromAssets(
       assets: selectedAssets,
       deleteOriginals: true, // Hide from gallery
-      onProgress: (current, total) {
-        setState(() {
-          _importProgress = current;
-          _importTotal = total;
-        });
+      onProgress: (current, total, {int? currentSize, int? totalSize}) {
+        progressState.value = progressState.value.copyWith(
+          currentFile: current,
+          totalSizeBytes: totalSize ?? 0,
+          processedSizeBytes: currentSize ?? 0,
+          statusMessage: 'Processing file $current of $total...',
+        );
       },
     );
 
-    setState(() => _isImporting = false);
+    if (!mounted) return;
 
     if (result.success && result.importedCount > 0) {
       final msg = result.deletedOriginals
@@ -2635,6 +2948,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     } else if (!result.success) {
       ToastUtils.showError(result.error ?? 'Import failed');
     }
+
+    Navigator.pop(context); // Close progress sheet
   }
 
   Future<void> _importVideosFromGallery() async {
@@ -2656,24 +2971,54 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       return;
     }
 
-    setState(() {
-      _isImporting = true;
-      _importProgress = 0;
-      _importTotal = selectedAssets.length;
-    });
+    final progressState = ValueNotifier<OperationProgressState>(
+      OperationProgressState(
+        totalFiles: selectedAssets.length,
+        currentFile: 0,
+        currentFileName: 'Preparing...',
+        totalSizeBytes: 0,
+        processedSizeBytes: 0,
+        statusMessage: 'Starting...',
+        isProcessing: true,
+      ),
+    );
+
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (context) => ValueListenableBuilder<OperationProgressState>(
+        valueListenable: progressState,
+        builder: (context, state, _) => OperationProgressSheet(
+          operationType: OperationType.hide,
+          totalFiles: state.totalFiles,
+          currentFile: state.currentFile,
+          currentFileName: state.currentFileName,
+          totalSizeBytes: state.totalSizeBytes,
+          processedSizeBytes: state.processedSizeBytes,
+          statusMessage: state.statusMessage,
+          isProcessing: state.isProcessing,
+          isComplete: state.isComplete,
+        ),
+      ),
+    );
 
     final result = await _importService.importFromAssets(
       assets: selectedAssets,
       deleteOriginals: true, // Hide from gallery
-      onProgress: (current, total) {
-        setState(() {
-          _importProgress = current;
-          _importTotal = total;
-        });
+      onProgress: (current, total, {int? currentSize, int? totalSize}) {
+        progressState.value = progressState.value.copyWith(
+          currentFile: current,
+          totalSizeBytes: totalSize ?? 0,
+          processedSizeBytes: currentSize ?? 0,
+          statusMessage: 'Processing file $current of $total...',
+        );
       },
     );
 
-    setState(() => _isImporting = false);
+    if (!mounted) return;
 
     if (result.success && result.importedCount > 0) {
       final msg = result.deletedOriginals
@@ -2684,6 +3029,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     } else if (!result.success) {
       ToastUtils.showError(result.error ?? 'Import failed');
     }
+
+    Navigator.pop(context); // Close progress sheet
   }
 
   Future<void> _importMediaFromGallery() async {
@@ -2705,24 +3052,55 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       return;
     }
 
-    setState(() {
-      _isImporting = true;
-      _importProgress = 0;
-      _importTotal = selectedAssets.length;
-    });
+    final progressState = ValueNotifier<OperationProgressState>(
+      OperationProgressState(
+        totalFiles: selectedAssets.length,
+        currentFile: 0,
+        currentFileName: 'Preparing...',
+        totalSizeBytes: 0,
+        processedSizeBytes: 0,
+        statusMessage: 'Starting...',
+        isProcessing: true,
+      ),
+    );
+
+    // Show progress sheet
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (context) => ValueListenableBuilder<OperationProgressState>(
+        valueListenable: progressState,
+        builder: (context, state, _) => OperationProgressSheet(
+          operationType: OperationType.hide,
+          totalFiles: state.totalFiles,
+          currentFile: state.currentFile,
+          currentFileName: state.currentFileName,
+          totalSizeBytes: state.totalSizeBytes,
+          processedSizeBytes: state.processedSizeBytes,
+          statusMessage: state.statusMessage,
+          isProcessing: state.isProcessing,
+          isComplete: state.isComplete,
+        ),
+      ),
+    );
 
     final result = await _importService.importFromAssets(
       assets: selectedAssets,
       deleteOriginals: true, // Hide from gallery
-      onProgress: (current, total) {
-        setState(() {
-          _importProgress = current;
-          _importTotal = total;
-        });
+      onProgress: (current, total, {int? currentSize, int? totalSize}) {
+        progressState.value = progressState.value.copyWith(
+          currentFile: current,
+          totalSizeBytes: totalSize ?? 0,
+          processedSizeBytes: currentSize ?? 0,
+          statusMessage: 'Processing file $current of $total...',
+        );
       },
     );
 
-    setState(() => _isImporting = false);
+    if (!mounted) return;
 
     if (result.success && result.importedCount > 0) {
       final msg = result.deletedOriginals
@@ -2733,6 +3111,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     } else if (!result.success) {
       ToastUtils.showError(result.error ?? 'Import failed');
     }
+
+    Navigator.pop(context); // Close progress sheet
   }
 
   Future<void> _capturePhoto() async {
@@ -2974,7 +3354,7 @@ class _ImportOptionsSheet extends StatelessWidget {
                       child: _ImportOptionTile(
                         icon: Icons.photo_library_outlined,
                         label: 'Images',
-                        color: Colors.blue,
+                        color: context.accentColor,
                         onTap: onImportImages,
                       ),
                     ),

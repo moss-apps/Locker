@@ -45,6 +45,23 @@ class AppColors {
   /// Dark mode accent light (#7AB3F0)
   static const Color darkAccentLight = Color(0xFF7AB3F0);
 
+  // ===== GLASSMORPHIC COLORS =====
+
+  /// Glass background (dark mode) - semi-transparent
+  static const Color glassDarkBg = Color(0x1AFFFFFF); // 10% white
+
+  /// Glass background (light mode) - semi-transparent
+  static const Color glassLightBg = Color(0x0D000000); // 5% black
+
+  /// Glass border (dark mode) - subtle white border
+  static const Color glassDarkBorder = Color(0x33FFFFFF); // 20% white
+
+  /// Glass border (light mode) - subtle dark border
+  static const Color glassLightBorder = Color(0x1A000000); // 10% black
+
+  /// Glass highlight (for shine effect)
+  static const Color glassHighlight = Color(0x26FFFFFF); // 15% white
+
   // ===== LEGACY PRIMARY COLORS (for backward compatibility) =====
 
   /// Main background color - Dark Gray (#121212)
@@ -345,6 +362,18 @@ extension AppColorsExtension on BuildContext {
   Color get dividerColor =>
       isDarkMode ? AppColors.darkDivider : AppColors.lightDivider;
 
-  /// Accent color (adapts to theme)
-  Color get accentColor => isDarkMode ? AppColors.darkAccent : AppColors.accent;
+  /// Accent color (uses theme's primary color which is set dynamically)
+  Color get accentColor => Theme.of(this).colorScheme.primary;
+
+  /// Accent color variant (uses theme's primary container)
+  Color get accentColorVariant => Theme.of(this).colorScheme.primaryContainer;
+
+  /// Glass background color (adapts to theme)
+  Color get glassBg => isDarkMode ? AppColors.glassDarkBg : AppColors.glassLightBg;
+
+  /// Glass border color (adapts to theme)
+  Color get glassBorder => isDarkMode ? AppColors.glassDarkBorder : AppColors.glassLightBorder;
+
+  /// Glass highlight color
+  Color get glassHighlight => AppColors.glassHighlight;
 }

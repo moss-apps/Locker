@@ -198,7 +198,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.close, color: AppColors.lightTextPrimary),
+          icon: Icon(Icons.close, color: context.textPrimary),
           onPressed: () => Navigator.pop(context, null),
         ),
         title: _buildAlbumDropdown(),
@@ -218,7 +218,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
       body: _isLoading && _assets.isEmpty
           ? Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppColors.accent),
+                valueColor: AlwaysStoppedAnimation(context.accentColor),
               ),
             )
           : _assets.isEmpty
@@ -264,7 +264,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Icon(Icons.arrow_drop_down, color: AppColors.lightTextPrimary),
+          Icon(Icons.arrow_drop_down, color: context.textPrimary),
         ],
       ),
       itemBuilder: (context) => _albums.map((album) {
@@ -327,7 +327,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
           return Center(
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation(AppColors.accent),
+              valueColor: AlwaysStoppedAnimation(context.accentColor),
             ),
           );
         }
@@ -410,7 +410,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation(
-                          AppColors.accent.withValues(alpha: 0.5)),
+                          context.accentColor.withValues(alpha: 0.5)),
                     ),
                   ),
                 ),
@@ -450,7 +450,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
           // Selection overlay
           if (isSelected)
             Container(
-              color: AppColors.accent.withValues(alpha: 0.3),
+              color: context.accentColor.withValues(alpha: 0.3),
             ),
 
           // Selection indicator
@@ -464,10 +464,10 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected
-                    ? AppColors.accent
+                    ? context.accentColor
                     : Colors.white.withValues(alpha: 0.7),
                 border: Border.all(
-                  color: isSelected ? AppColors.accent : Colors.grey,
+                  color: isSelected ? context.accentColor : Colors.grey,
                   width: 2,
                 ),
               ),
@@ -527,7 +527,7 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
             icon: const Icon(Icons.check, size: 20),
             label: const Text('Hide Selected'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(

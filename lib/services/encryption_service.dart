@@ -183,9 +183,21 @@ class EncryptionService {
     Uint8List? customKey,
   }) async {
     try {
+      debugPrint(
+          '[Encryption] decryptData called with ${encryptedData.length} bytes');
+
       final key = customKey ??
           (isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey());
       final iv = base64Decode(ivBase64);
+
+      // Validate input data length for CBC mode
+      if (encryptedData.length % 16 != 0) {
+        debugPrint(
+            'Decryption error: Invalid data length ${encryptedData.length} (not multiple of 16)');
+        // Try CTR mode as fallback - maybe file was incorrectly detected
+        debugPrint('[Encryption] Attempting CTR fallback...');
+        return await _tryCtrFallback(encryptedData, ivBase64, isDecoy);
+      }
 
       final cipher = _getCipher(key, iv, false);
       final decrypted = cipher.process(encryptedData);
@@ -196,6 +208,35 @@ class EncryptionService {
       );
     } catch (e) {
       debugPrint('Decryption error: $e');
+      return DecryptionResult(
+        success: false,
+        error: 'Decryption failed: $e',
+      );
+    }
+  }
+
+  /// CTR fallback when CBC fails
+  Future<DecryptionResult> _tryCtrFallback(
+    Uint8List encryptedData,
+    String ivBase64,
+    bool isDecoy,
+  ) async {
+    try {
+      final key = isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
+      final iv = base64Decode(ivBase64);
+
+      final ctr = CTRStreamCipher(AESEngine())
+        ..init(false, ParametersWithIV<KeyParameter>(KeyParameter(key), iv));
+
+      final decrypted = ctr.process(encryptedData);
+
+      debugPrint('[Encryption] CTR fallback succeeded!');
+      return DecryptionResult(
+        success: true,
+        data: decrypted,
+      );
+    } catch (e) {
+      debugPrint('[Encryption] CTR fallback failed: $e');
       return DecryptionResult(
         success: false,
         error: 'Decryption failed: $e',
@@ -329,6 +370,7 @@ class EncryptionService {
   }
 
   /// Decrypt a file and return the decrypted file path
+  /// Automatically detects format (CTR streamed or CBC)
   Future<FileDecryptionResult> decryptFile(
     String encryptedPath,
     String destinationPath,
@@ -345,32 +387,58 @@ class EncryptionService {
         );
       }
 
-      final encryptedData = await encryptedFile.readAsBytes();
-      onProgress?.call(1, 3);
+      // Check magic bytes to determine format
+      final raf = await encryptedFile.open();
+      final header = await raf.read(8);
+      await raf.close();
 
-      final result = await decryptData(
-        Uint8List.fromList(encryptedData),
-        ivBase64,
-        isDecoy: isDecoy,
-      );
-      onProgress?.call(2, 3);
+      if (header.length >= 4 &&
+          header[0] == 0x4C &&
+          header[1] == 0x4B &&
+          header[2] == 0x52 &&
+          header[3] == 0x53) {
+        // CTR-encrypted streamed file - use streaming decryption
+        debugPrint('[Encryption] Using CTR format for decryptFile');
+        onProgress?.call(1, 3);
 
-      if (!result.success || result.data == null) {
+        final result = await decryptFileStreamed(
+          encryptedPath,
+          destinationPath,
+          ivBase64,
+          isDecoy: isDecoy,
+        );
+
+        onProgress?.call(3, 3);
+        return result;
+      } else {
+        // CBC-encrypted file
+        onProgress?.call(1, 3);
+        final encryptedData = await encryptedFile.readAsBytes();
+
+        final result = await decryptData(
+          Uint8List.fromList(encryptedData),
+          ivBase64,
+          isDecoy: isDecoy,
+        );
+        onProgress?.call(2, 3);
+
+        if (!result.success || result.data == null) {
+          return FileDecryptionResult(
+            success: false,
+            error: result.error ?? 'Decryption failed',
+          );
+        }
+
+        final destFile = File(destinationPath);
+        await destFile.writeAsBytes(result.data!);
+        onProgress?.call(3, 3);
+
         return FileDecryptionResult(
-          success: false,
-          error: result.error ?? 'Decryption failed',
+          success: true,
+          decryptedPath: destinationPath,
+          decryptedSize: result.data!.length,
         );
       }
-
-      final destFile = File(destinationPath);
-      await destFile.writeAsBytes(result.data!);
-      onProgress?.call(3, 3);
-
-      return FileDecryptionResult(
-        success: true,
-        decryptedPath: destinationPath,
-        decryptedSize: result.data!.length,
-      );
     } catch (e) {
       debugPrint('File decryption error: $e');
       return FileDecryptionResult(
@@ -478,6 +546,8 @@ class EncryptionService {
         );
       }
 
+      final fileSize = await encryptedFile.length();
+
       // Check magic bytes first (without loading entire file)
       final raf = await encryptedFile.open();
       final header = await raf.read(8);
@@ -489,6 +559,7 @@ class EncryptionService {
           header[2] == 0x52 &&
           header[3] == 0x53) {
         // CTR-encrypted streamed file - use streaming decryption
+        debugPrint('[Encryption] Detected CTR streamed format');
         final key =
             isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
         final iv = base64Decode(ivBase64);
@@ -509,9 +580,51 @@ class EncryptionService {
           success: true,
           data: Uint8List.fromList(decryptedBytes),
         );
+      } else if (header.length >= 4 &&
+          header[0] == 0x4C &&
+          header[1] == 0x4B &&
+          header[2] == 0x52 &&
+          header[3] == 0x44) {
+        // CBC-encrypted file with header - skip the 8-byte header
+        debugPrint('[Encryption] Detected CBC format with header');
+        final raf2 = await encryptedFile.open();
+        await raf2.setPosition(8); // Skip header
+        final encryptedData = await raf2.read(fileSize - 8);
+        await raf2.close();
+
+        // Validate data length
+        if (encryptedData.length % 16 != 0) {
+          debugPrint(
+              '[Encryption] Invalid CBC data length: ${encryptedData.length}');
+          return DecryptionResult(
+            success: false,
+            error: 'Corrupted encrypted file: invalid data length',
+          );
+        }
+
+        return await decryptData(
+          Uint8List.fromList(encryptedData),
+          ivBase64,
+          isDecoy: isDecoy,
+        );
       } else {
-        // Fall back to loading entire file for CBC decryption (legacy)
+        // Legacy CBC file without header - decrypt entire file
+        debugPrint('[Encryption] Detected legacy CBC format (no header)');
         final encryptedData = await encryptedFile.readAsBytes();
+
+        // Validate data length
+        if (encryptedData.length % 16 != 0) {
+          debugPrint(
+              '[Encryption] Invalid CBC data length: ${encryptedData.length}');
+          debugPrint(
+              '[Encryption] File size: $fileSize, Remainder: ${encryptedData.length % 16}');
+          return DecryptionResult(
+            success: false,
+            error:
+                'Corrupted encrypted file: data length ${encryptedData.length} is not a multiple of 16 bytes',
+          );
+        }
+
         return await decryptData(
           encryptedData,
           ivBase64,
@@ -528,33 +641,18 @@ class EncryptionService {
   }
 
   /// Decrypt file to memory (for viewing without writing to disk)
+  /// Automatically detects format (CTR streamed or CBC) and decrypts accordingly
   Future<DecryptionResult> decryptFileToMemory(
     String encryptedPath,
     String ivBase64, {
     bool isDecoy = false,
   }) async {
-    try {
-      final encryptedFile = File(encryptedPath);
-      if (!await encryptedFile.exists()) {
-        return DecryptionResult(
-          success: false,
-          error: 'Encrypted file does not exist',
-        );
-      }
-
-      final encryptedData = await encryptedFile.readAsBytes();
-      return await decryptData(
-        Uint8List.fromList(encryptedData),
-        ivBase64,
-        isDecoy: isDecoy,
-      );
-    } catch (e) {
-      debugPrint('File decryption to memory error: $e');
-      return DecryptionResult(
-        success: false,
-        error: 'File decryption failed: $e',
-      );
-    }
+    // Delegate to the format-detecting function
+    return decryptStreamedFileToMemory(
+      encryptedPath,
+      ivBase64,
+      isDecoy: isDecoy,
+    );
   }
 
   /// Encrypt data using AES-256-GCM (faster + authenticated)
@@ -970,8 +1068,6 @@ class EncryptionService {
     }
   }
 
-
-
   /// Generate a hash of the data (for integrity verification)
   String generateHash(Uint8List data) {
     return sha256.convert(data).toString();
@@ -1207,8 +1303,7 @@ Future<_IsolateEncryptResult> _encryptFileIsolate(
 
     if (params.useGcm) {
       final gcm = GCMBlockCipher(AESEngine())
-        ..init(
-            true, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
+        ..init(true, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
 
       final header = Uint8List(8);
       header[0] = 0x4C;
@@ -1221,8 +1316,9 @@ Future<_IsolateEncryptResult> _encryptFileIsolate(
       header[7] = ((totalBytes >> 24) & 0xFF);
       sink.add(header);
 
-      await for (final chunk
-          in sourceFile.openRead().transform(_ChunkedStreamTransformer(1024 * 1024))) {
+      await for (final chunk in sourceFile
+          .openRead()
+          .transform(_ChunkedStreamTransformer(1024 * 1024))) {
         sink.add(gcm.process(Uint8List.fromList(chunk)));
       }
     } else {
@@ -1240,8 +1336,9 @@ Future<_IsolateEncryptResult> _encryptFileIsolate(
       header[7] = ((totalBytes >> 24) & 0xFF);
       sink.add(header);
 
-      await for (final chunk
-          in sourceFile.openRead().transform(_ChunkedStreamTransformer(1024 * 1024))) {
+      await for (final chunk in sourceFile
+          .openRead()
+          .transform(_ChunkedStreamTransformer(1024 * 1024))) {
         sink.add(ctr.process(Uint8List.fromList(chunk)));
       }
     }
@@ -1285,8 +1382,7 @@ Future<_IsolateDecryptResult> _decryptFileIsolate(
         header[2] == 0x52 &&
         header[3] == 0x47) {
       final gcm = GCMBlockCipher(AESEngine())
-        ..init(
-            false, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
+        ..init(false, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
       await for (final chunk in encryptedFile
           .openRead(8)
           .transform(_ChunkedStreamTransformer(1024 * 1024))) {
@@ -1395,7 +1491,8 @@ class KeyRotationResult {
   });
 }
 
-class _ChunkedStreamTransformer extends StreamTransformerBase<List<int>, List<int>> {
+class _ChunkedStreamTransformer
+    extends StreamTransformerBase<List<int>, List<int>> {
   final int chunkSize;
 
   _ChunkedStreamTransformer(this.chunkSize);

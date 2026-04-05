@@ -265,7 +265,90 @@ class AuthService {
     return method != null;
   }
 
-  /// Reset all authentication data (for testing or reset functionality)
+  /// Change the user's password (requires current password verification)
+  Future<bool> changePassword(
+      String currentPassword, String newPassword) async {
+    try {
+      if (currentPassword.isEmpty || newPassword.isEmpty) return false;
+
+      final isVerified = await verifyPassword(currentPassword);
+      if (!isVerified) return false;
+
+      final passwordHash = _hashPassword(newPassword);
+      await _storage.write(key: _passwordHashKey, value: passwordHash);
+      await _storage.write(key: _authMethodKey, value: 'password');
+      await _storage.write(key: _biometricsEnabledKey, value: 'false');
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Change the user's PIN (requires current PIN verification)
+  Future<bool> changePIN(String currentPIN, String newPIN) async {
+    try {
+      if (currentPIN.isEmpty || newPIN.isEmpty) return false;
+      if (newPIN.length != 6) return false;
+      if (!RegExp(r'^[0-9]{6}$').hasMatch(newPIN)) return false;
+
+      final isVerified = await verifyPIN(currentPIN);
+      if (!isVerified) return false;
+
+      final pinHash = _hashPassword(newPIN);
+      await _storage.write(key: _pinHashKey, value: pinHash);
+      await _storage.write(key: _authMethodKey, value: 'pin');
+      await _storage.write(key: _biometricsEnabledKey, value: 'false');
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Switch from PIN to password (requires current PIN verification)
+  Future<bool> switchFromPINToPassword(
+      String currentPIN, String newPassword) async {
+    try {
+      if (currentPIN.isEmpty || newPassword.isEmpty) return false;
+
+      final isVerified = await verifyPIN(currentPIN);
+      if (!isVerified) return false;
+
+      final passwordHash = _hashPassword(newPassword);
+      await _storage.write(key: _passwordHashKey, value: passwordHash);
+      await _storage.write(key: _authMethodKey, value: 'password');
+      await _storage.write(key: _biometricsEnabledKey, value: 'false');
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Switch from password to PIN (requires current password verification)
+  Future<bool> switchFromPasswordToPIN(
+      String currentPassword, String newPIN) async {
+    try {
+      if (currentPassword.isEmpty || newPIN.isEmpty) return false;
+      if (newPIN.length != 6) return false;
+      if (!RegExp(r'^[0-9]{6}$').hasMatch(newPIN)) return false;
+
+      final isVerified = await verifyPassword(currentPassword);
+      if (!isVerified) return false;
+
+      final pinHash = _hashPassword(newPIN);
+      await _storage.write(key: _pinHashKey, value: pinHash);
+      await _storage.write(key: _authMethodKey, value: 'pin');
+      await _storage.write(key: _biometricsEnabledKey, value: 'false');
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Reset all Authentication data (for testing or reset functionality)
   Future<bool> resetAuth() async {
     try {
       await _storage.delete(key: _passwordHashKey);

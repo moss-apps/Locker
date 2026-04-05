@@ -14,12 +14,13 @@ class LockerApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final accentColor = ref.watch(accentColorProvider);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Locker',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: AppTheme.getLightTheme(accentColor),
+      darkTheme: AppTheme.getDarkTheme(accentColor),
       themeMode: themeMode,
       home: const AppInitializer(),
     );

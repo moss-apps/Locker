@@ -227,82 +227,96 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
         decoration: BoxDecoration(
           color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Slideshow Settings',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: context.textPrimary,
-                fontFamily: 'ProductSans',
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Duration per slide',
-              style: TextStyle(
-                fontFamily: 'ProductSans',
-                color: context.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            StatefulBuilder(
-              builder: (context, setSheetState) => Row(
-                children: [
-                  for (final seconds in [2, 3, 5, 10])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text('${seconds}s'),
-                        selected: _slideshowDuration == seconds,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setSheetState(() {});
-                            setState(() => _slideshowDuration = seconds);
-                          }
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Slideshow Settings',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: context.textPrimary,
+                        fontFamily: 'ProductSans',
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Duration per slide',
+                      style: TextStyle(
+                        fontFamily: 'ProductSans',
+                        color: context.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    StatefulBuilder(
+                      builder: (context, setSheetState) => Row(
+                        children: [
+                          for (final seconds in [2, 3, 5, 10])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text('${seconds}s'),
+                                selected: _slideshowDuration == seconds,
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    setSheetState(() {});
+                                    setState(
+                                        () => _slideshowDuration = seconds);
+                                  }
+                                },
+                                selectedColor: AppColors.accent,
+                                labelStyle: TextStyle(
+                                  color: _slideshowDuration == seconds
+                                      ? Colors.white
+                                      : AppColors.lightTextPrimary,
+                                  fontFamily: 'ProductSans',
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _startSlideshow();
                         },
-                        selectedColor: AppColors.accent,
-                        labelStyle: TextStyle(
-                          color: _slideshowDuration == seconds
-                              ? Colors.white
-                              : AppColors.lightTextPrimary,
-                          fontFamily: 'ProductSans',
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: Text(
+                          _isSlideshow ? 'Stop Slideshow' : 'Start Slideshow',
+                          style: const TextStyle(fontFamily: 'ProductSans'),
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _startSlideshow();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: Text(
-                  _isSlideshow ? 'Stop Slideshow' : 'Start Slideshow',
-                  style: const TextStyle(fontFamily: 'ProductSans'),
+                    SizedBox(height: MediaQuery.of(context).padding.bottom),
+                  ],
                 ),
               ),
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -354,36 +368,50 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
         decoration: BoxDecoration(
           color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'File Information',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: context.textPrimary,
-                fontFamily: 'ProductSans',
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'File Information',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: context.textPrimary,
+                        fontFamily: 'ProductSans',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildInfoRow('Name', file.originalName),
+                    _buildInfoRow('Type', file.type.displayName),
+                    _buildInfoRow('Size', file.formattedSize),
+                    _buildInfoRow('Added', file.formattedDateAdded),
+                    if (file.isEncrypted) _buildInfoRow('Encrypted', 'Yes'),
+                    if (file.hasTags)
+                      _buildInfoRow('Tags', file.tags.join(', ')),
+                    if (file.viewCount > 0)
+                      _buildInfoRow('Views', file.viewCount.toString()),
+                    SizedBox(height: MediaQuery.of(context).padding.bottom),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _buildInfoRow('Name', file.originalName),
-            _buildInfoRow('Type', file.type.displayName),
-            _buildInfoRow('Size', file.formattedSize),
-            _buildInfoRow('Added', file.formattedDateAdded),
-            if (file.isEncrypted) _buildInfoRow('Encrypted', 'Yes'),
-            if (file.hasTags) _buildInfoRow('Tags', file.tags.join(', ')),
-            if (file.viewCount > 0)
-              _buildInfoRow('Views', file.viewCount.toString()),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -423,95 +451,102 @@ class _MediaViewerScreenState extends ConsumerState<MediaViewerScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
         decoration: BoxDecoration(
           color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.borderColor,
-                borderRadius: BorderRadius.circular(2),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Export Options',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: context.textPrimary,
-                      fontFamily: 'ProductSans',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    leading: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Export Options',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: context.textPrimary,
+                        fontFamily: 'ProductSans',
                       ),
-                      child: Icon(Icons.download_outlined,
-                          color: AppColors.accent),
                     ),
-                    title: const Text('Export to Downloads',
-                        style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            fontWeight: FontWeight.w500)),
-                    subtitle: Text('Save file to Downloads folder',
-                        style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            fontSize: 12,
-                            color: AppColors.lightTextSecondary)),
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _exportToDownloads(file);
-                    },
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      leading: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.download_outlined,
+                            color: AppColors.accent),
                       ),
-                      child: const Icon(Icons.open_in_new, color: Colors.blue),
+                      title: const Text('Export to Downloads',
+                          style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontWeight: FontWeight.w500)),
+                      subtitle: Text('Save file to Downloads folder',
+                          style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontSize: 12,
+                              color: AppColors.lightTextSecondary)),
+                      contentPadding: EdgeInsets.zero,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _exportToDownloads(file);
+                      },
                     ),
-                    title: const Text('Open with...',
-                        style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            fontWeight: FontWeight.w500)),
-                    subtitle: Text('Open file with an external app',
-                        style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            fontSize: 12,
-                            color: AppColors.lightTextSecondary)),
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _openWithExternalApp(file);
-                    },
-                  ),
-                ],
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: context.accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child:
+                            Icon(Icons.open_in_new, color: context.accentColor),
+                      ),
+                      title: const Text('Open with...',
+                          style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontWeight: FontWeight.w500)),
+                      subtitle: Text('Open file with an external app',
+                          style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontSize: 12,
+                              color: AppColors.lightTextSecondary)),
+                      contentPadding: EdgeInsets.zero,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _openWithExternalApp(file);
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
+            ],
+          ),
         ),
       ),
     );

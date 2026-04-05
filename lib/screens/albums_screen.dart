@@ -33,7 +33,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
           ),
         ),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        foregroundColor: AppColors.lightTextPrimary,
+        foregroundColor: context.textPrimary,
         elevation: 0,
       ),
       body: albumsAsync.when(
@@ -67,7 +67,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateAlbumDialog,
-        backgroundColor: AppColors.accent,
+        backgroundColor: context.accentColor,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'New Album',
@@ -94,7 +94,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
       onRefresh: () async {
         await ref.read(albumsNotifierProvider.notifier).loadAlbums();
       },
-      color: AppColors.accent,
+      color: context.accentColor,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -188,7 +188,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
                       Icon(
                         _getAlbumIcon(album.type),
                         size: 16,
-                        color: AppColors.accent,
+                        color: context.accentColor,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
@@ -330,7 +330,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
   Color _getAlbumColor(AlbumType type) {
     switch (type) {
       case AlbumType.custom:
-        return AppColors.accent;
+        return context.accentColor;
       case AlbumType.favorites:
         return Colors.red;
       case AlbumType.recent:
@@ -342,7 +342,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
       case AlbumType.downloads:
         return Colors.green;
       case AlbumType.shared:
-        return Colors.blue;
+        return context.accentColor;
     }
   }
 
@@ -355,7 +355,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
           color: context.backgroundSecondary,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.accent.withValues(alpha: 0.3),
+            color: context.accentColor.withValues(alpha: 0.3),
             width: 2,
             style: BorderStyle.solid,
           ),
@@ -367,14 +367,14 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
               Icon(
                 Icons.add_circle_outline,
                 size: 40,
-                color: AppColors.accent,
+                color: context.accentColor,
               ),
               const SizedBox(height: 8),
               Text(
                 'Create Album',
                 style: TextStyle(
                   fontFamily: 'ProductSans',
-                  color: AppColors.accent,
+                  color: context.accentColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -428,7 +428,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
             icon: const Icon(Icons.add),
             label: const Text('Create Album'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -454,68 +454,74 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
         decoration: BoxDecoration(
           color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.borderColor,
-                borderRadius: BorderRadius.circular(2),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    album.name,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: context.textPrimary,
-                      fontFamily: 'ProductSans',
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      album.name,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: context.textPrimary,
+                        fontFamily: 'ProductSans',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildOptionTile(
-                    icon: Icons.edit_outlined,
-                    label: 'Rename Album',
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showRenameAlbumDialog(album);
-                    },
-                  ),
-                  _buildOptionTile(
-                    icon: Icons.image_outlined,
-                    label: 'Change Cover',
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showChangeCoverSheet(album);
-                    },
-                  ),
-                  _buildOptionTile(
-                    icon: Icons.delete_outline,
-                    label: 'Delete Album',
-                    color: AppColors.error,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showDeleteAlbumDialog(album);
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    _buildOptionTile(
+                      icon: Icons.edit_outlined,
+                      label: 'Rename Album',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showRenameAlbumDialog(album);
+                      },
+                    ),
+                    _buildOptionTile(
+                      icon: Icons.image_outlined,
+                      label: 'Change Cover',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showChangeCoverSheet(album);
+                      },
+                    ),
+                    _buildOptionTile(
+                      icon: Icons.delete_outline,
+                      label: 'Delete Album',
+                      color: AppColors.error,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showDeleteAlbumDialog(album);
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
+            ],
+          ),
         ),
       ),
     );
@@ -572,7 +578,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.accent),
+                  borderSide: BorderSide(color: context.accentColor),
                 ),
               ),
               autofocus: true,
@@ -591,7 +597,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.accent),
+                  borderSide: BorderSide(color: context.accentColor),
                 ),
               ),
               maxLines: 2,
@@ -634,7 +640,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
             ),
             child: const Text(
@@ -674,7 +680,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.accent),
+              borderSide: BorderSide(color: context.accentColor),
             ),
           ),
           autofocus: true,
@@ -711,7 +717,7 @@ class _AlbumsScreenState extends ConsumerState<AlbumsScreen> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
             ),
             child: const Text(
@@ -865,7 +871,7 @@ class _ChangeCoverSheetState extends ConsumerState<_ChangeCoverSheet> {
                   ElevatedButton(
                     onPressed: _isLoading ? null : _saveCover,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
+                      backgroundColor: context.accentColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
@@ -1018,7 +1024,7 @@ class _ChangeCoverSheetState extends ConsumerState<_ChangeCoverSheet> {
               color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
-                  ? Border.all(color: AppColors.accent, width: 3)
+                  ? Border.all(color: context.accentColor, width: 3)
                   : null,
             ),
             child: ClipRRect(
@@ -1052,7 +1058,7 @@ class _ChangeCoverSheetState extends ConsumerState<_ChangeCoverSheet> {
                 height: 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.accent,
+                  color: context.accentColor,
                   border: Border.all(color: Colors.white, width: 2),
                 ),
                 child: const Icon(Icons.check, size: 16, color: Colors.white),

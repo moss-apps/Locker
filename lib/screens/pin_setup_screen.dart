@@ -1,10 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../themes/app_colors.dart';
 import '../widgets/pin_input_widget.dart';
 import '../services/auth_service.dart';
 import 'gallery_vault_screen.dart';
 
-/// PIN setup screen with confirmation
 class PinSetupScreen extends StatefulWidget {
   const PinSetupScreen({super.key});
 
@@ -21,16 +22,13 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
 
   void _handlePinComplete(String pin) async {
     if (!_isConfirmation) {
-      // First PIN entry
       setState(() {
         _firstPin = pin;
         _isConfirmation = true;
         _errorMessage = null;
       });
     } else {
-      // Confirmation PIN entry
       if (pin == _firstPin) {
-        // PINs match, save and navigate
         setState(() {
           _isLoading = true;
           _errorMessage = null;
@@ -54,7 +52,6 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
           });
         }
       } else {
-        // PINs don't match
         setState(() {
           _errorMessage = 'PINs do not match. Please try again.';
           _isConfirmation = false;
@@ -75,15 +72,14 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.lightTextPrimary),
+          icon: Icon(Icons.arrow_back, color: context.textPrimary),
           onPressed: _isLoading
               ? null
               : () {
                   if (_isConfirmation) {
-                    // Go back to first PIN entry
                     setState(() {
                       _isConfirmation = false;
                       _firstPin = null;
@@ -98,54 +94,177 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
           _isConfirmation ? 'Confirm PIN' : 'Create PIN',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: AppColors.accent,
-              ),
-            )
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 32),
-
-                    // Instruction Text
-                    Text(
-                      _isConfirmation
-                          ? 'Enter your PIN again to confirm'
-                          : 'Enter a 6-digit PIN',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: AppColors.lightTextSecondary,
-                        fontFamily: 'ProductSans',
-                      ),
-                      textAlign: TextAlign.center,
+      body: Stack(
+        children: [
+          _buildBackground(),
+          _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: context.accentColor,
+                  ),
+                )
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      children: [
+                        const Spacer(),
+                        _buildIcon(),
+                        const SizedBox(height: 32),
+                        _buildInstruction(),
+                        const SizedBox(height: 48),
+                        _buildPinWidget(),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 24),
+                          _buildError(),
+                        ],
+                        const Spacer(),
+                      ],
                     ),
-
-                    const SizedBox(height: 64),
-
-                    // PIN Input Widget
-                    PinInputWidget(
-                      key: ValueKey(
-                          _isConfirmation), // Force reset when mode changes
-                      onPinComplete: _handlePinComplete,
-                      onPinChanged: _handlePinChanged,
-                      errorMessage: _errorMessage,
-                    ),
-
-                    const Spacer(),
-                  ],
+                  ),
                 ),
-              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: context.isDarkMode
+              ? [
+                  const Color(0xFF0F0F12),
+                  const Color(0xFF1A1A2E),
+                  const Color(0xFF16213E),
+                ]
+              : [
+                  const Color(0xFFE8EEF5),
+                  const Color(0xFFF5F7FA),
+                  const Color(0xFFE4E9F2),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIcon() {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: context.isDarkMode
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.15),
+        border: Border.all(
+          color: context.isDarkMode
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.15),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SvgPicture.asset(
+              'assets/locker_logo_nobg.svg',
+              fit: BoxFit.contain,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstruction() {
+    return Text(
+      _isConfirmation
+          ? 'Enter your PIN again to confirm'
+          : 'Enter a 6-digit PIN',
+      style: TextStyle(
+        fontSize: 18,
+        color: context.textSecondary,
+        fontFamily: 'ProductSans',
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  Widget _buildPinWidget() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: PinInputWidget(
+            key: ValueKey(_isConfirmation),
+            onPinComplete: _handlePinComplete,
+            onPinChanged: _handlePinChanged,
+            errorMessage: _errorMessage,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.error.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.error.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            _errorMessage!,
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 14,
+              fontFamily: 'ProductSans',
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
