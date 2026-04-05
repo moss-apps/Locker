@@ -107,7 +107,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       bool isSelectionMode, Set<String> selectedFiles) {
     if (isSelectionMode) {
       return AppBar(
-        backgroundColor: AppColors.accent,
+        backgroundColor: context.accentColor,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: _exitSelectionMode,
@@ -270,7 +270,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
   Widget _buildImportProgress() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: AppColors.accent.withValues(alpha: 0.1),
+      color: context.accentColor.withValues(alpha: 0.1),
       child: Row(
         children: [
           SizedBox(
@@ -278,7 +278,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             height: 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation(AppColors.accent),
+              valueColor: AlwaysStoppedAnimation(context.accentColor),
               value: _importTotal > 0 ? _importProgress / _importTotal : null,
             ),
           ),
@@ -311,9 +311,9 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       ),
       child: TabBar(
         controller: _tabController,
-        labelColor: AppColors.accent,
+        labelColor: context.accentColor,
         unselectedLabelColor: AppColors.lightTextTertiary,
-        indicatorColor: AppColors.accent,
+        indicatorColor: context.accentColor,
         indicatorWeight: 3,
         isScrollable: true,
         labelStyle: const TextStyle(
@@ -380,7 +380,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     return filesAsync.when(
       loading: () => Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation(AppColors.accent),
+          valueColor: AlwaysStoppedAnimation(context.accentColor),
         ),
       ),
       error: (error, stack) => Center(
@@ -443,7 +443,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           onRefresh: () async {
             await ref.read(vaultNotifierProvider.notifier).refresh();
           },
-          color: AppColors.accent,
+          color: context.accentColor,
           child: GridView.builder(
             padding: const EdgeInsets.all(8),
             gridDelegate: ResponsiveGridDelegate.responsive(
@@ -497,7 +497,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
               border: isSelected
-                  ? Border.all(color: AppColors.accent, width: 3)
+                  ? Border.all(color: context.accentColor, width: 3)
                   : null,
             ),
             child: ClipRRect(
@@ -515,10 +515,10 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 height: 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isSelected ? AppColors.accent : Colors.white,
+                  color: isSelected ? context.accentColor : Colors.white,
                   border: Border.all(
                     color:
-                        isSelected ? AppColors.accent : AppColors.lightBorder,
+                        isSelected ? context.accentColor : context.borderColor,
                     width: 2,
                   ),
                 ),
@@ -716,7 +716,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     switch (file.type) {
       case VaultedFileType.image:
         icon = Icons.image;
-        color = Colors.blue;
+        color = context.accentColor;
         break;
       case VaultedFileType.video:
         icon = Icons.videocam;
@@ -782,7 +782,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         return Colors.red;
       case 'doc':
       case 'docx':
-        return Colors.blue;
+        return context.accentColor;
       case 'xls':
       case 'xlsx':
         return Colors.green;
@@ -792,7 +792,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       case 'txt':
         return Colors.grey;
       default:
-        return Colors.blueGrey;
+        return context.accentColor;
     }
   }
 
@@ -949,12 +949,12 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.1),
+                        color: context.accentColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         Icons.download_outlined,
-                        color: AppColors.accent,
+                        color: context.accentColor,
                       ),
                     ),
                     title: const Text(
@@ -985,12 +985,12 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
+                        color: context.accentColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.open_in_new,
-                        color: Colors.blue,
+                        color: context.accentColor,
                       ),
                     ),
                     title: const Text(
@@ -1072,7 +1072,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           content: Row(
             children: [
               CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppColors.accent),
+                valueColor: AlwaysStoppedAnimation(context.accentColor),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -1136,7 +1136,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           content: Row(
             children: [
               CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppColors.accent),
+                valueColor: AlwaysStoppedAnimation(context.accentColor),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -1211,7 +1211,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               'Close',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.accent,
+                color: context.accentColor,
               ),
             ),
           ),
@@ -1295,7 +1295,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         return Colors.green;
       case 'exe':
       case 'msi':
-        return Colors.blue;
+        return context.accentColor;
       case 'mp3':
       case 'wav':
       case 'flac':
@@ -1432,8 +1432,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 28, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -1804,7 +1804,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                               ? Icons.radio_button_checked
                               : Icons.radio_button_off,
                           color: currentSort == option
-                              ? AppColors.accent
+                              ? context.accentColor
                               : AppColors.lightTextTertiary,
                         ),
                         title: Text(
@@ -1882,7 +1882,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                               .map((album) => ListTile(
                                     leading: Icon(
                                       Icons.folder_outlined,
-                                      color: AppColors.accent,
+                                      color: context.accentColor,
                                     ),
                                     title: Text(
                                       album.name,
@@ -2004,12 +2004,13 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: AppColors.accent),
+                              borderSide:
+                                  BorderSide(color: context.accentColor),
                             ),
                             prefixIcon: Icon(Icons.label_outline,
                                 color: AppColors.lightTextSecondary),
                             suffixIcon: IconButton(
-                              icon: Icon(Icons.add, color: AppColors.accent),
+                              icon: Icon(Icons.add, color: context.accentColor),
                               onPressed: () async {
                                 final tag = tagController.text.trim();
                                 if (tag.isEmpty) return;
@@ -2221,7 +2222,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               'Unhide',
               style: TextStyle(
                 fontFamily: 'ProductSans',
-                color: AppColors.accent,
+                color: context.accentColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -2393,193 +2394,173 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Consumer(
-        builder: (context, ref, _) {
-          final settingsAsync = ref.watch(vaultSettingsProvider);
-
-          return Container(
-            decoration: BoxDecoration(
-              color: context.backgroundColor,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: context.borderColor,
-                    borderRadius: BorderRadius.circular(2),
+      isScrollControlled: true,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        decoration: BoxDecoration(
+          color: context.backgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Consumer(
+          builder: (context, ref, _) {
+            final settingsAsync = ref.watch(vaultSettingsProvider);
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: context.borderColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Security Settings',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: context.textPrimary,
-                          fontFamily: 'ProductSans',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ListTile(
-                        leading: Icon(Icons.security_outlined,
-                            color: AppColors.accent),
-                        title: const Text(
-                          'Change Security',
-                          style: TextStyle(fontFamily: 'ProductSans'),
-                        ),
-                        subtitle: Text(
-                          'Change password, PIN, or biometric',
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Security Settings',
                           style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: context.textPrimary,
                             fontFamily: 'ProductSans',
-                            fontSize: 12,
-                            color: context.textTertiary,
                           ),
                         ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const ChangeSecurityScreen(),
-                            ),
-                          );
-                        },
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      ListTile(
-                        leading: Icon(Icons.backup_outlined,
-                            color: AppColors.accent),
-                        title: const Text(
-                          'Local backup',
-                          style: TextStyle(fontFamily: 'ProductSans'),
+                        const SizedBox(height: 16),
+                        ListTile(
+                          leading: Icon(Icons.security_outlined,
+                              color: context.accentColor),
+                          title: const Text('Change Security',
+                              style: TextStyle(fontFamily: 'ProductSans')),
+                          subtitle: Text('Change password, PIN, or biometric',
+                              style: TextStyle(
+                                  fontFamily: 'ProductSans',
+                                  fontSize: 12,
+                                  color: context.textTertiary)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ChangeSecurityScreen()));
+                          },
+                          contentPadding: EdgeInsets.zero,
                         ),
-                        subtitle: Text(
-                          'Save vault as ZIP to a folder',
-                          style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            fontSize: 12,
-                            color: context.textTertiary,
+                        ListTile(
+                          leading: Icon(Icons.backup_outlined,
+                              color: context.accentColor),
+                          title: const Text('Local backup',
+                              style: TextStyle(fontFamily: 'ProductSans')),
+                          subtitle: Text('Save vault as ZIP to a folder',
+                              style: TextStyle(
+                                  fontFamily: 'ProductSans',
+                                  fontSize: 12,
+                                  color: context.textTertiary)),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const LocalBackupScreen()));
+                          },
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildThemeToggle(context, ref),
+                        const SizedBox(height: 8),
+                        _buildAccentColorOption(context, ref),
+                        const SizedBox(height: 16),
+                        settingsAsync.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (_, __) =>
+                              const Text('Failed to load settings'),
+                          data: (settings) => Column(
+                            children: [
+                              SwitchListTile(
+                                title: const Text('Encrypt New Files',
+                                    style:
+                                        TextStyle(fontFamily: 'ProductSans')),
+                                subtitle: Text(
+                                    'AES-256 encryption for all new imports',
+                                    style: TextStyle(
+                                        fontFamily: 'ProductSans',
+                                        fontSize: 12,
+                                        color: context.textTertiary)),
+                                value: settings.encryptionEnabled,
+                                onChanged: (value) async {
+                                  await ref
+                                      .read(vaultServiceProvider)
+                                      .updateSettings(settings.copyWith(
+                                          encryptionEnabled: value));
+                                  ref.invalidate(vaultSettingsProvider);
+                                },
+                                activeThumbColor: context.accentColor,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              SwitchListTile(
+                                title: const Text('Secure Delete',
+                                    style:
+                                        TextStyle(fontFamily: 'ProductSans')),
+                                subtitle: Text(
+                                    'Overwrite files before deletion',
+                                    style: TextStyle(
+                                        fontFamily: 'ProductSans',
+                                        fontSize: 12,
+                                        color: context.textTertiary)),
+                                value: settings.secureDelete,
+                                onChanged: (value) async {
+                                  await ref
+                                      .read(vaultServiceProvider)
+                                      .updateSettings(settings.copyWith(
+                                          secureDelete: value));
+                                  ref.invalidate(vaultSettingsProvider);
+                                },
+                                activeThumbColor: context.accentColor,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              SwitchListTile(
+                                title: const Text('Compress Media',
+                                    style:
+                                        TextStyle(fontFamily: 'ProductSans')),
+                                subtitle: Text(
+                                    'Reduce file size for images and videos',
+                                    style: TextStyle(
+                                        fontFamily: 'ProductSans',
+                                        fontSize: 12,
+                                        color: context.textTertiary)),
+                                value: settings.compressionEnabled,
+                                onChanged: (value) async {
+                                  await ref
+                                      .read(vaultServiceProvider)
+                                      .updateSettings(settings.copyWith(
+                                          compressionEnabled: value));
+                                  ref.invalidate(vaultSettingsProvider);
+                                },
+                                activeThumbColor: context.accentColor,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ],
                           ),
                         ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LocalBackupScreen(),
-                            ),
-                          );
-                        },
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildThemeToggle(context, ref),
-                      const SizedBox(height: 8),
-                      _buildAccentColorOption(context, ref),
-                      const SizedBox(height: 16),
-                      settingsAsync.when(
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (_, __) => const Text('Failed to load settings'),
-                        data: (settings) => Column(
-                          children: [
-                            SwitchListTile(
-                              title: const Text(
-                                'Encrypt New Files',
-                                style: TextStyle(fontFamily: 'ProductSans'),
-                              ),
-                              subtitle: Text(
-                                'AES-256 encryption for all new imports',
-                                style: TextStyle(
-                                  fontFamily: 'ProductSans',
-                                  fontSize: 12,
-                                  color: context.textTertiary,
-                                ),
-                              ),
-                              value: settings.encryptionEnabled,
-                              onChanged: (value) async {
-                                await ref
-                                    .read(vaultServiceProvider)
-                                    .updateSettings(settings.copyWith(
-                                      encryptionEnabled: value,
-                                    ));
-                                ref.invalidate(vaultSettingsProvider);
-                              },
-                              activeThumbColor: AppColors.accent,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            SwitchListTile(
-                              title: const Text(
-                                'Secure Delete',
-                                style: TextStyle(fontFamily: 'ProductSans'),
-                              ),
-                              subtitle: Text(
-                                'Overwrite files before deletion',
-                                style: TextStyle(
-                                  fontFamily: 'ProductSans',
-                                  fontSize: 12,
-                                  color: context.textTertiary,
-                                ),
-                              ),
-                              value: settings.secureDelete,
-                              onChanged: (value) async {
-                                await ref
-                                    .read(vaultServiceProvider)
-                                    .updateSettings(settings.copyWith(
-                                      secureDelete: value,
-                                    ));
-                                ref.invalidate(vaultSettingsProvider);
-                              },
-                              activeThumbColor: AppColors.accent,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            SwitchListTile(
-                              title: const Text(
-                                'Compress Media',
-                                style: TextStyle(fontFamily: 'ProductSans'),
-                              ),
-                              subtitle: Text(
-                                'Reduce file size for images and videos',
-                                style: TextStyle(
-                                  fontFamily: 'ProductSans',
-                                  fontSize: 12,
-                                  color: context.textTertiary,
-                                ),
-                              ),
-                              value: settings.compressionEnabled,
-                              onChanged: (value) async {
-                                await ref
-                                    .read(vaultServiceProvider)
-                                    .updateSettings(settings.copyWith(
-                                      compressionEnabled: value,
-                                    ));
-                                ref.invalidate(vaultSettingsProvider);
-                              },
-                              activeThumbColor: AppColors.accent,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                SizedBox(height: MediaQuery.of(context).padding.bottom),
-              ],
-            ),
-          );
-        },
+                  SizedBox(height: MediaQuery.of(context).padding.bottom),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -2623,8 +2604,10 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              accentColor.getColor(context.isDarkMode ? Brightness.dark : Brightness.light),
-              accentColor.getVariantColor(context.isDarkMode ? Brightness.dark : Brightness.light),
+              accentColor.getColor(
+                  context.isDarkMode ? Brightness.dark : Brightness.light),
+              accentColor.getVariantColor(
+                  context.isDarkMode ? Brightness.dark : Brightness.light),
             ],
           ),
           borderRadius: BorderRadius.circular(8),
@@ -2695,7 +2678,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.shield_outlined, color: AppColors.accent),
+                          Icon(Icons.shield_outlined,
+                              color: context.accentColor),
                           const SizedBox(width: 8),
                           Text(
                             'Decoy Mode',
@@ -2740,7 +2724,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                 }
                                 ref.invalidate(decoySettingsProvider);
                               },
-                              activeThumbColor: AppColors.accent,
+                              activeThumbColor: context.accentColor,
                               contentPadding: EdgeInsets.zero,
                             ),
                             if (settings.isEnabled) ...[
@@ -2831,7 +2815,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.accent),
+                  borderSide: BorderSide(color: context.accentColor),
                 ),
               ),
             ),
@@ -2868,7 +2852,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
             ),
             child: const Text(
@@ -3329,7 +3313,7 @@ class _ImportOptionsSheet extends StatelessWidget {
                       child: _ImportOptionTile(
                         icon: Icons.photo_library_outlined,
                         label: 'Images',
-                        color: Colors.blue,
+                        color: context.accentColor,
                         onTap: onImportImages,
                       ),
                     ),
