@@ -9,6 +9,22 @@ import '../models/album.dart';
 import 'encryption_service.dart';
 import 'compression_service.dart';
 
+class FileProgressInfo {
+  final int current;
+  final int total;
+  final String fileName;
+  final int fileSize;
+  final String status;
+
+  const FileProgressInfo({
+    required this.current,
+    required this.total,
+    required this.fileName,
+    required this.fileSize,
+    required this.status,
+  });
+}
+
 /// Service for managing vaulted files storage
 class VaultService {
   VaultService._();
@@ -490,6 +506,7 @@ class VaultService {
     bool encrypt = false,
     bool isDecoy = false,
     Function(int current, int total)? onProgress,
+    Function(FileProgressInfo)? onFileProgress,
   }) async {
     // Load settings once before processing the batch
     _cachedSettings ??= await _loadSettings();
@@ -498,6 +515,17 @@ class VaultService {
     for (int i = 0; i < files.length; i++) {
       final file = files[i];
       onProgress?.call(i + 1, files.length);
+
+      final sourceFile = File(file.sourcePath);
+      final fileSize = await sourceFile.length();
+
+      onFileProgress?.call(FileProgressInfo(
+        current: i + 1,
+        total: files.length,
+        fileName: file.originalName,
+        fileSize: fileSize,
+        status: 'Processing...',
+      ));
 
       final result = await addFile(
         sourcePath: file.sourcePath,
@@ -512,6 +540,14 @@ class VaultService {
       if (result != null) {
         results.add(result);
       }
+
+      onFileProgress?.call(FileProgressInfo(
+        current: i + 1,
+        total: files.length,
+        fileName: file.originalName,
+        fileSize: fileSize,
+        status: 'Complete',
+      ));
     }
 
     return results;

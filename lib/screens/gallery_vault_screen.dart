@@ -26,6 +26,7 @@ import 'package:photo_manager/photo_manager.dart' hide AlbumType;
 import 'camera_screen.dart';
 import 'local_backup_screen.dart';
 import 'change_security_screen.dart';
+import '../widgets/operation_progress_sheet.dart';
 
 /// Gallery vault screen - main screen after authentication
 class GalleryVaultScreen extends ConsumerStatefulWidget {
@@ -2034,25 +2035,54 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     );
 
     if (confirmed == true) {
-      setState(() {
-        _isImporting = true;
-        _importProgress = 0;
-        _importTotal = selectedFiles.length;
-      });
+      final progressState = ValueNotifier<OperationProgressState>(
+        OperationProgressState(
+          totalFiles: selectedFiles.length,
+          currentFile: 0,
+          currentFileName: 'Preparing...',
+          totalSizeBytes: 0,
+          processedSizeBytes: 0,
+          statusMessage: 'Starting...',
+          isProcessing: true,
+        ),
+      );
+
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isDismissible: false,
+        enableDrag: false,
+        builder: (context) => ValueListenableBuilder<OperationProgressState>(
+          valueListenable: progressState,
+          builder: (context, state, _) => OperationProgressSheet(
+            operationType: OperationType.unhide,
+            totalFiles: state.totalFiles,
+            currentFile: state.currentFile,
+            currentFileName: state.currentFileName,
+            totalSizeBytes: state.totalSizeBytes,
+            processedSizeBytes: state.processedSizeBytes,
+            statusMessage: state.statusMessage,
+            isProcessing: state.isProcessing,
+            isComplete: state.isComplete,
+          ),
+        ),
+      );
 
       final result = await _importService.unhideFiles(
         fileIds: selectedFiles.toList(),
         removeFromVault: true,
         onProgress: (current, total) {
-          setState(() {
-            _importProgress = current;
-            _importTotal = total;
-          });
+          progressState.value = progressState.value.copyWith(
+            currentFile: current,
+            statusMessage: 'Restoring file $current of $total...',
+          );
         },
       );
 
-      setState(() => _isImporting = false);
       _exitSelectionMode();
+
+      if (!mounted) return;
 
       if (result.success && result.unhiddenCount > 0) {
         ToastUtils.showSuccess(result.message ?? 'Files restored to gallery');
@@ -2060,6 +2090,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       } else if (!result.success) {
         ToastUtils.showError(result.error ?? 'Failed to unhide files');
       }
+
+      Navigator.pop(context); // Close progress sheet
     }
   }
 
@@ -2108,61 +2140,46 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     );
 
     if (confirmed == true) {
-      // Check if still mounted after async gap
       if (!mounted) return;
 
-      // Use a Completer to ensure dialog is shown before starting delete operation
-      final dialogContext = Completer<BuildContext>();
-
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) {
-          // Complete with the dialog's context once it's built
-          if (!dialogContext.isCompleted) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!dialogContext.isCompleted) {
-                dialogContext.complete(ctx);
-              }
-            });
-          }
-          return PopScope(
-            canPop: false,
-            child: AlertDialog(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation(AppColors.accent),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Deleting ${selectedFiles.length} file(s)...',
-                    style: TextStyle(
-                      fontFamily: 'ProductSans',
-                      color: context.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+      final progressState = ValueNotifier<OperationProgressState>(
+        OperationProgressState(
+          totalFiles: selectedFiles.length,
+          currentFile: 0,
+          currentFileName: 'Preparing...',
+          totalSizeBytes: 0,
+          processedSizeBytes: 0,
+          statusMessage: 'Starting...',
+          isProcessing: true,
+        ),
       );
 
-      // Wait for the dialog to be fully rendered before starting the delete operation
-      await dialogContext.future;
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isDismissible: false,
+        enableDrag: false,
+        builder: (context) => ValueListenableBuilder<OperationProgressState>(
+          valueListenable: progressState,
+          builder: (context, state, _) => OperationProgressSheet(
+            operationType: OperationType.delete,
+            totalFiles: state.totalFiles,
+            currentFile: state.currentFile,
+            currentFileName: state.currentFileName,
+            totalSizeBytes: state.totalSizeBytes,
+            processedSizeBytes: state.processedSizeBytes,
+            statusMessage: state.statusMessage,
+            isProcessing: state.isProcessing,
+            isComplete: state.isComplete,
+          ),
+        ),
+      );
 
       final success = await ref
           .read(vaultNotifierProvider.notifier)
           .deleteFiles(selectedFiles.toList());
 
-      // Close loading dialog
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
 
       _exitSelectionMode();
 
@@ -2171,6 +2188,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       } else {
         ToastUtils.showError('Failed to delete some files');
       }
+
+      Navigator.pop(context); // Close progress sheet
     }
   }
 
@@ -2635,24 +2654,53 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       return;
     }
 
-    setState(() {
-      _isImporting = true;
-      _importProgress = 0;
-      _importTotal = selectedAssets.length;
-    });
+    final progressState = ValueNotifier<OperationProgressState>(
+      OperationProgressState(
+        totalFiles: selectedAssets.length,
+        currentFile: 0,
+        currentFileName: 'Preparing...',
+        totalSizeBytes: 0,
+        processedSizeBytes: 0,
+        statusMessage: 'Starting...',
+        isProcessing: true,
+      ),
+    );
+
+    // Show progress sheet
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (context) => ValueListenableBuilder<OperationProgressState>(
+        valueListenable: progressState,
+        builder: (context, state, _) => OperationProgressSheet(
+          operationType: OperationType.hide,
+          totalFiles: state.totalFiles,
+          currentFile: state.currentFile,
+          currentFileName: state.currentFileName,
+          totalSizeBytes: state.totalSizeBytes,
+          processedSizeBytes: state.processedSizeBytes,
+          statusMessage: state.statusMessage,
+          isProcessing: state.isProcessing,
+          isComplete: state.isComplete,
+        ),
+      ),
+    );
 
     final result = await _importService.importFromAssets(
       assets: selectedAssets,
       deleteOriginals: true, // Hide from gallery
       onProgress: (current, total) {
-        setState(() {
-          _importProgress = current;
-          _importTotal = total;
-        });
+        progressState.value = progressState.value.copyWith(
+          currentFile: current,
+          statusMessage: 'Processing file $current of $total...',
+        );
       },
     );
 
-    setState(() => _isImporting = false);
+    if (!mounted) return;
 
     if (result.success && result.importedCount > 0) {
       final msg = result.deletedOriginals
@@ -2663,6 +2711,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     } else if (!result.success) {
       ToastUtils.showError(result.error ?? 'Import failed');
     }
+
+    Navigator.pop(context); // Close progress sheet
   }
 
   Future<void> _importVideosFromGallery() async {
@@ -2684,24 +2734,52 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       return;
     }
 
-    setState(() {
-      _isImporting = true;
-      _importProgress = 0;
-      _importTotal = selectedAssets.length;
-    });
+    final progressState = ValueNotifier<OperationProgressState>(
+      OperationProgressState(
+        totalFiles: selectedAssets.length,
+        currentFile: 0,
+        currentFileName: 'Preparing...',
+        totalSizeBytes: 0,
+        processedSizeBytes: 0,
+        statusMessage: 'Starting...',
+        isProcessing: true,
+      ),
+    );
+
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (context) => ValueListenableBuilder<OperationProgressState>(
+        valueListenable: progressState,
+        builder: (context, state, _) => OperationProgressSheet(
+          operationType: OperationType.hide,
+          totalFiles: state.totalFiles,
+          currentFile: state.currentFile,
+          currentFileName: state.currentFileName,
+          totalSizeBytes: state.totalSizeBytes,
+          processedSizeBytes: state.processedSizeBytes,
+          statusMessage: state.statusMessage,
+          isProcessing: state.isProcessing,
+          isComplete: state.isComplete,
+        ),
+      ),
+    );
 
     final result = await _importService.importFromAssets(
       assets: selectedAssets,
       deleteOriginals: true, // Hide from gallery
       onProgress: (current, total) {
-        setState(() {
-          _importProgress = current;
-          _importTotal = total;
-        });
+        progressState.value = progressState.value.copyWith(
+          currentFile: current,
+          statusMessage: 'Processing file $current of $total...',
+        );
       },
     );
 
-    setState(() => _isImporting = false);
+    if (!mounted) return;
 
     if (result.success && result.importedCount > 0) {
       final msg = result.deletedOriginals
@@ -2712,6 +2790,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     } else if (!result.success) {
       ToastUtils.showError(result.error ?? 'Import failed');
     }
+
+    Navigator.pop(context); // Close progress sheet
   }
 
   Future<void> _importMediaFromGallery() async {
