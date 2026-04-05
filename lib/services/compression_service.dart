@@ -7,9 +7,7 @@ class CompressionService {
   CompressionService._();
   static final CompressionService instance = CompressionService._();
 
-  static const int _maxImageDimension = 1920;
-  static const int _jpegQuality = 80;
-  static const int _pngCompressionLevel = 6;
+  static const int _jpegQuality = 95;
 
   Future<String?> compressImage(String sourcePath) async {
     try {
@@ -25,11 +23,11 @@ class CompressionService {
       Uint8List? compressedBytes;
 
       if (extension == 'jpg' || extension == 'jpeg') {
-        compressedBytes = await _compressJpeg(bytes);
+        compressedBytes = await _compressJpegKeepOriginalSize(bytes);
       } else if (extension == 'png') {
-        compressedBytes = await _compressPng(bytes);
+        compressedBytes = bytes;
       } else {
-        compressedBytes = await _compressJpeg(bytes);
+        compressedBytes = await _compressJpegKeepOriginalSize(bytes);
       }
 
       if (compressedBytes == null) {
@@ -52,32 +50,17 @@ class CompressionService {
     }
   }
 
-  Future<Uint8List?> _compressJpeg(Uint8List bytes) async {
+  Future<Uint8List?> _compressJpegKeepOriginalSize(Uint8List bytes) async {
     try {
       final result = BicubicResizer.resizeJpeg(
         jpegBytes: bytes,
-        outputWidth: _maxImageDimension,
-        outputHeight: _maxImageDimension,
+        outputWidth: 4096,
+        outputHeight: 4096,
         quality: _jpegQuality,
       );
       return result;
     } catch (e) {
       debugPrint('[Compression] JPEG compression error: $e');
-      return null;
-    }
-  }
-
-  Future<Uint8List?> _compressPng(Uint8List bytes) async {
-    try {
-      final result = BicubicResizer.resize(
-        bytes: bytes,
-        outputWidth: _maxImageDimension,
-        outputHeight: _maxImageDimension,
-        quality: _pngCompressionLevel,
-      );
-      return result;
-    } catch (e) {
-      debugPrint('[Compression] PNG compression error: $e');
       return null;
     }
   }
@@ -90,21 +73,13 @@ class CompressionService {
         return null;
       }
 
-      final fileSize = await sourceFile.length();
       final tempDir = await getTemporaryDirectory();
 
       final outputPath =
           '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
-      int targetBitrate = 2000000;
-      if (fileSize > 100 * 1024 * 1024) {
-        targetBitrate = 1000000;
-      } else if (fileSize > 50 * 1024 * 1024) {
-        targetBitrate = 1500000;
-      }
-
       debugPrint(
-          '[Compression] Video compression - original size: ${fileSize ~/ (1024 * 1024)}MB, target bitrate: ${targetBitrate ~/ 1000}kbps');
+          '[Compression] Compressing video: $sourcePath (preserving original resolution)');
 
       final process = await Process.start(
         'ffmpeg',
@@ -114,15 +89,13 @@ class CompressionService {
           '-vcodec',
           'libx264',
           '-preset',
-          'medium',
+          'fast',
           '-crf',
-          '28',
-          '-b:v',
-          '$targetBitrate',
+          '18',
           '-acodec',
           'aac',
           '-b:a',
-          '128k',
+          '192k',
           '-movflags',
           '+faststart',
           '-y',
@@ -135,6 +108,7 @@ class CompressionService {
       if (exitCode == 0) {
         final outputFile = File(outputPath);
         if (await outputFile.exists()) {
+          final fileSize = await sourceFile.length();
           final outputSize = await outputFile.length();
           debugPrint(
               '[Compression] Compressed video: $sourcePath (${fileSize ~/ (1024 * 1024)}MB -> ${outputSize ~/ (1024 * 1024)}MB)');
