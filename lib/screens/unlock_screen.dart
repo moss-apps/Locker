@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../themes/app_colors.dart';
 import '../services/auth_service.dart';
 import '../widgets/pin_input_widget.dart';
@@ -122,198 +124,365 @@ class _UnlockScreenState extends State<UnlockScreen> {
   Widget build(BuildContext context) {
     if (_isLoading || _authMethod == null) {
       return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Center(
-          child: CircularProgressIndicator(
-            color: AppColors.accent,
-          ),
+        backgroundColor: context.backgroundColor,
+        body: Stack(
+          children: [
+            _buildBackground(),
+            Center(
+              child: CircularProgressIndicator(
+                color: context.accentColor,
+              ),
+            ),
+          ],
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
+      backgroundColor: context.backgroundColor,
+      body: Stack(
+        children: [
+          _buildBackground(),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Spacer(),
+                  _buildLogo(),
+                  const SizedBox(height: 32),
+                  _buildAppName(),
+                  const SizedBox(height: 12),
+                  _buildInstruction(),
+                  const SizedBox(height: 64),
+                  _buildAuthWidget(),
+                  const Spacer(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: context.isDarkMode
+              ? [
+                  const Color(0xFF0F0F12),
+                  const Color(0xFF1A1A2E),
+                  const Color(0xFF16213E),
+                ]
+              : [
+                  const Color(0xFFE8EEF5),
+                  const Color(0xFFF5F7FA),
+                  const Color(0xFFE4E9F2),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogo() {
+    return Center(
+      child: Container(
+        width: 140,
+        height: 140,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: context.isDarkMode
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.white.withValues(alpha: 0.15),
+          border: Border.all(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.2),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: context.accentColor.withValues(alpha: 0.2),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: SvgPicture.asset(
+                'assets/locker_logo_nobg.svg',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppName() {
+    return Text(
+      'Locker',
+      style: TextStyle(
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+        color: context.textPrimary,
+        fontFamily: 'ProductSans',
+        letterSpacing: -0.5,
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  Widget _buildInstruction() {
+    return Text(
+      _authMethod == 'pin'
+          ? 'Enter your PIN to unlock'
+          : _authMethod == 'password'
+              ? 'Enter your password to unlock'
+              : 'Use biometrics to unlock',
+      style: TextStyle(
+        fontSize: 16,
+        color: context.textSecondary,
+        fontFamily: 'ProductSans',
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  Widget _buildAuthWidget() {
+    if (_authMethod == 'pin') {
+      return _buildPinAuth();
+    } else if (_authMethod == 'password') {
+      return _buildPasswordAuth();
+    } else if (_authMethod == 'biometric') {
+      return _buildBiometricAuth();
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildPinAuth() {
+    return Column(
+      children: [
+        PinInputWidget(
+          onPinComplete: _handlePinComplete,
+          onPinChanged: _handlePinChanged,
+          errorMessage: _errorMessage,
+          controller: _pinController,
+        ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 16),
+          _buildError(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildPasswordAuth() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 64),
-
-              // App Icon/Logo
-              Center(
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Image.asset(
-                    'assets/padlock.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // App Name
-              Text(
-                'Locker',
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
                 style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).brightness == Brightness.light
-                      ? AppColors.lightTextPrimary
-                      : AppColors.darkTextPrimary,
                   fontFamily: 'ProductSans',
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 8),
-
-              // Unlock instruction
-              Text(
-                _authMethod == 'pin'
-                    ? 'Enter your PIN to unlock'
-                    : _authMethod == 'password'
-                        ? 'Enter your password to unlock'
-                        : 'Use biometrics to unlock',
-                style: TextStyle(
                   fontSize: 16,
-                  color: Theme.of(context).brightness == Brightness.light
-                      ? AppColors.lightTextSecondary
-                      : AppColors.darkTextSecondary,
-                  fontFamily: 'ProductSans',
+                  color: context.textPrimary,
                 ),
-                textAlign: TextAlign.center,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  hintText: 'Enter your password',
+                  labelStyle: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textSecondary,
+                  ),
+                  hintStyle: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textTertiary,
+                  ),
+                  filled: true,
+                  fillColor: context.isDarkMode
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.03),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: context.textTertiary,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: context.accentColor, width: 2),
+                  ),
+                ),
+                onChanged: (_) {
+                  if (_errorMessage != null) {
+                    setState(() => _errorMessage = null);
+                  }
+                },
+                onSubmitted: (_) => _handlePasswordAuth(),
               ),
-
-              const SizedBox(height: 64),
-
-              // Authentication Widget based on method
-              if (_authMethod == 'pin')
-                PinInputWidget(
-                  onPinComplete: _handlePinComplete,
-                  onPinChanged: _handlePinChanged,
-                  errorMessage: _errorMessage,
-                  controller: _pinController,
-                )
-              else if (_authMethod == 'password')
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        hintText: 'Enter your password',
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: AppColors.lightTextTertiary,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                      style: TextStyle(
-                        fontFamily: 'ProductSans',
-                        fontSize: 16,
-                      ),
-                      onChanged: (_) {
-                        if (_errorMessage != null) {
-                          setState(() => _errorMessage = null);
-                        }
-                      },
-                      onSubmitted: (_) => _handlePasswordAuth(),
-                    ),
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        _errorMessage!,
-                        style: TextStyle(
-                          color: AppColors.error,
-                          fontSize: 14,
-                          fontFamily: 'ProductSans',
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _handlePasswordAuth,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          'Unlock',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontFamily: 'ProductSans',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              else if (_authMethod == 'biometric')
-                Column(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppColors.accentLight.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.fingerprint,
-                        size: 48,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    if (_errorMessage != null) ...[
-                      Text(
-                        _errorMessage!,
-                        style: TextStyle(
-                          color: AppColors.error,
-                          fontSize: 14,
-                          fontFamily: 'ProductSans',
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    ElevatedButton(
-                      onPressed: _handleBiometricAuth,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          'Unlock with Biometric',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontFamily: 'ProductSans',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-              const Spacer(),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 16),
+                _buildError(),
+              ],
+              const SizedBox(height: 24),
+              _buildUnlockButton(),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBiometricAuth() {
+    return Column(
+      children: [
+        Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.white.withValues(alpha: 0.15),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.15)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 2,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Icon(
+                Icons.fingerprint,
+                size: 64,
+                color: context.accentColor,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        if (_errorMessage != null) ...[
+          _buildError(),
+          const SizedBox(height: 24),
+        ],
+        _buildUnlockButton(isBiometric: true),
+      ],
+    );
+  }
+
+  Widget _buildError() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.error.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.error.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            _errorMessage!,
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 14,
+              fontFamily: 'ProductSans',
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnlockButton({bool isBiometric = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: isBiometric ? _handleBiometricAuth : _handlePasswordAuth,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Text(
+          isBiometric ? 'Unlock with Biometric' : 'Unlock',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'ProductSans',
+            color: Colors.white,
           ),
         ),
       ),

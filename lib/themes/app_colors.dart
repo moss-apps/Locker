@@ -362,8 +362,11 @@ extension AppColorsExtension on BuildContext {
   Color get dividerColor =>
       isDarkMode ? AppColors.darkDivider : AppColors.lightDivider;
 
-  /// Accent color (adapts to theme)
-  Color get accentColor => isDarkMode ? AppColors.darkAccent : AppColors.accent;
+  /// Accent color (uses theme's primary color which is set dynamically)
+  Color get accentColor => Theme.of(this).colorScheme.primary;
+
+  /// Accent color variant (uses theme's primary container)
+  Color get accentColorVariant => Theme.of(this).colorScheme.primaryContainer;
 
   /// Glass background color (adapts to theme)
   Color get glassBg => isDarkMode ? AppColors.glassDarkBg : AppColors.glassLightBg;
