@@ -279,14 +279,16 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             child: CircularProgressIndicator(
               strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation(context.accentColor),
-              value: _importTotal > 0 ? _importProgress / _importTotal : null,
+              value: _importTotal > 0
+                  ? (_importProgress / _importTotal).clamp(0.0, 1.0)
+                  : null,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _importTotal > 0
-                  ? 'Importing... $_importProgress / $_importTotal'
+                  ? 'Importing... ${_importProgress.clamp(0, _importTotal)} / $_importTotal'
                   : 'Importing...',
               style: TextStyle(
                 fontFamily: 'ProductSans',
@@ -2269,10 +2271,12 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       final result = await _importService.unhideFiles(
         fileIds: selectedFiles.toList(),
         removeFromVault: true,
-        onProgress: (current, total) {
+        onProgress: (current, total, {int? currentSize, int? totalSize}) {
           progressState.value = progressState.value.copyWith(
             currentFile: current,
-            statusMessage: 'Restoring file $current of $total...',
+            totalSizeBytes: totalSize ?? 0,
+            processedSizeBytes: currentSize ?? 0,
+            statusMessage: 'Processing file $current of $total...',
           );
         },
       );
@@ -2923,9 +2927,11 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     final result = await _importService.importFromAssets(
       assets: selectedAssets,
       deleteOriginals: true, // Hide from gallery
-      onProgress: (current, total) {
+      onProgress: (current, total, {int? currentSize, int? totalSize}) {
         progressState.value = progressState.value.copyWith(
           currentFile: current,
+          totalSizeBytes: totalSize ?? 0,
+          processedSizeBytes: currentSize ?? 0,
           statusMessage: 'Processing file $current of $total...',
         );
       },
@@ -3002,9 +3008,11 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     final result = await _importService.importFromAssets(
       assets: selectedAssets,
       deleteOriginals: true, // Hide from gallery
-      onProgress: (current, total) {
+      onProgress: (current, total, {int? currentSize, int? totalSize}) {
         progressState.value = progressState.value.copyWith(
           currentFile: current,
+          totalSizeBytes: totalSize ?? 0,
+          processedSizeBytes: currentSize ?? 0,
           statusMessage: 'Processing file $current of $total...',
         );
       },
@@ -3044,24 +3052,55 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       return;
     }
 
-    setState(() {
-      _isImporting = true;
-      _importProgress = 0;
-      _importTotal = selectedAssets.length;
-    });
+    final progressState = ValueNotifier<OperationProgressState>(
+      OperationProgressState(
+        totalFiles: selectedAssets.length,
+        currentFile: 0,
+        currentFileName: 'Preparing...',
+        totalSizeBytes: 0,
+        processedSizeBytes: 0,
+        statusMessage: 'Starting...',
+        isProcessing: true,
+      ),
+    );
+
+    // Show progress sheet
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (context) => ValueListenableBuilder<OperationProgressState>(
+        valueListenable: progressState,
+        builder: (context, state, _) => OperationProgressSheet(
+          operationType: OperationType.hide,
+          totalFiles: state.totalFiles,
+          currentFile: state.currentFile,
+          currentFileName: state.currentFileName,
+          totalSizeBytes: state.totalSizeBytes,
+          processedSizeBytes: state.processedSizeBytes,
+          statusMessage: state.statusMessage,
+          isProcessing: state.isProcessing,
+          isComplete: state.isComplete,
+        ),
+      ),
+    );
 
     final result = await _importService.importFromAssets(
       assets: selectedAssets,
       deleteOriginals: true, // Hide from gallery
-      onProgress: (current, total) {
-        setState(() {
-          _importProgress = current;
-          _importTotal = total;
-        });
+      onProgress: (current, total, {int? currentSize, int? totalSize}) {
+        progressState.value = progressState.value.copyWith(
+          currentFile: current,
+          totalSizeBytes: totalSize ?? 0,
+          processedSizeBytes: currentSize ?? 0,
+          statusMessage: 'Processing file $current of $total...',
+        );
       },
     );
 
-    setState(() => _isImporting = false);
+    if (!mounted) return;
 
     if (result.success && result.importedCount > 0) {
       final msg = result.deletedOriginals
@@ -3072,6 +3111,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     } else if (!result.success) {
       ToastUtils.showError(result.error ?? 'Import failed');
     }
+
+    Navigator.pop(context); // Close progress sheet
   }
 
   Future<void> _capturePhoto() async {

@@ -123,7 +123,8 @@ class FileImportService {
   Future<ImportResult> importFromAssets({
     required List<AssetEntity> assets,
     bool deleteOriginals = true,
-    Function(int current, int total)? onProgress,
+    Function(int current, int total, {int currentSize, int totalSize})?
+        onProgress,
   }) async {
     if (assets.isEmpty) {
       return ImportResult(
@@ -146,6 +147,23 @@ class FileImportService {
       final filesToVault = <FileToVault>[];
       final validAssets = <AssetEntity>[];
       int processed = 0;
+      int totalSize = 0;
+      int processedSize = 0;
+
+      // Calculate total size first
+      for (final asset in assets) {
+        final file = await asset.file;
+        if (file != null) {
+          try {
+            totalSize += await file.length();
+          } catch (e) {
+            debugPrint(
+                '[FileImport] Could not get size for ${asset.title}: $e');
+          }
+        }
+      }
+
+      debugPrint('[FileImport] Total size to import: $totalSize bytes');
 
       for (final asset in assets) {
         try {
@@ -184,8 +202,18 @@ class FileImportService {
           ));
           validAssets.add(asset);
 
+          // Get file size for progress tracking
+          int fileSize = 0;
+          try {
+            fileSize = await File(filePath).length();
+            processedSize += fileSize;
+          } catch (e) {
+            debugPrint('[FileImport] Could not get file size: $e');
+          }
+
           processed++;
-          onProgress?.call(processed, assets.length);
+          onProgress?.call(processed, assets.length,
+              currentSize: processedSize, totalSize: totalSize);
 
           debugPrint(
               '[FileImport] Prepared asset for import: $fileName (path: $filePath)');
@@ -208,9 +236,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false, // We handle deletion via PhotoManager
-        onProgress: (current, total) {
-          onProgress?.call(assets.length + current, assets.length + total);
-        },
+        onProgress: onProgress,
       );
 
       debugPrint('[FileImport] Imported ${imported.length} files to vault');
@@ -833,10 +859,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false,
-        onProgress: (current, total) {
-          onProgress?.call(
-              filePaths.length + current, filePaths.length + total);
-        },
+        onProgress: onProgress,
       );
 
       debugPrint('[FileImport] Imported ${imported.length} documents to vault');
@@ -1102,9 +1125,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false,
-        onProgress: (current, total) {
-          onProgress?.call(totalFiles + current, totalFiles + total);
-        },
+        onProgress: onProgress,
       );
 
       debugPrint('[FileImport] Imported ${imported.length} documents to vault');

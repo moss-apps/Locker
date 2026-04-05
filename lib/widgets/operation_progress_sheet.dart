@@ -36,10 +36,11 @@ class OperationProgressSheet extends StatefulWidget {
 class _OperationProgressSheetState extends State<OperationProgressSheet> {
   @override
   Widget build(BuildContext context) {
-    final progress =
-        widget.totalFiles > 0 ? widget.currentFile / widget.totalFiles : 0.0;
+    final progress = widget.totalFiles > 0
+        ? (widget.currentFile / widget.totalFiles).clamp(0.0, 1.0)
+        : 0.0;
     final sizeProgress = widget.totalSizeBytes > 0
-        ? widget.processedSizeBytes / widget.totalSizeBytes
+        ? (widget.processedSizeBytes / widget.totalSizeBytes).clamp(0.0, 1.0)
         : 0.0;
 
     return Container(
@@ -193,7 +194,7 @@ class _OperationProgressSheetState extends State<OperationProgressSheet> {
               ),
             ),
             Text(
-              '${(progress * 100).toInt()}%',
+              '${(progress * 100).clamp(0, 100).toInt()}%',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
