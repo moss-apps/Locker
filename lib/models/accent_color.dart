@@ -123,6 +123,15 @@ class AccentColors {
     darkColorVariant: Color(0xFFFFCC80),
   );
 
+  static const AccentColorOption gunmetal = AccentColorOption(
+    id: 'gunmetal',
+    name: 'Gunmetal Gray',
+    lightColor: Color(0xFF353E43),
+    darkColor: Color(0xFF353E43),
+    lightColorVariant: Color(0xFF4A565C),
+    darkColorVariant: Color(0xFF4A565C),
+  );
+
   /// List of all available accent colors
   static const List<AccentColorOption> all = [
     blue,
@@ -135,6 +144,7 @@ class AccentColors {
     indigo,
     cyan,
     amber,
+    gunmetal,
   ];
 
   /// Get accent color by ID
