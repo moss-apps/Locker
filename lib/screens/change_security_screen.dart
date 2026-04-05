@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../themes/app_colors.dart';
 import '../services/auth_service.dart';
 import '../utils/toast_utils.dart';
@@ -76,7 +78,7 @@ class _ChangeSecurityScreenState extends State<ChangeSecurityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: context.textPrimary),
@@ -87,81 +89,137 @@ class _ChangeSecurityScreenState extends State<ChangeSecurityScreen> {
           style: TextStyle(
             fontFamily: 'ProductSans',
             color: context.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: AppColors.accent,
-              ),
-            )
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Current method: ${_currentAuthMethod!.toUpperCase()}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: context.textTertiary,
-                        fontFamily: 'ProductSans',
-                      ),
-                      textAlign: TextAlign.center,
+      body: Stack(
+        children: [
+          _buildBackground(),
+          _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: context.accentColor,
+                  ),
+                )
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 16),
+                        _buildCurrentMethodBadge(),
+                        const SizedBox(height: 32),
+                        if (_currentAuthMethod == 'password') ...[
+                          _buildOptionCard(
+                            icon: Icons.lock_outline,
+                            title: 'Change Password',
+                            subtitle: 'Update your current password',
+                            onTap: _navigateToChangePassword,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildOptionCard(
+                            icon: Icons.pin_outlined,
+                            title: 'Switch to PIN',
+                            subtitle: 'Change from password to 6-digit PIN',
+                            onTap: _navigateToChangePIN,
+                          ),
+                        ] else if (_currentAuthMethod == 'pin') ...[
+                          _buildOptionCard(
+                            icon: Icons.pin_outlined,
+                            title: 'Change PIN',
+                            subtitle: 'Update your current PIN',
+                            onTap: _navigateToChangePIN,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildOptionCard(
+                            icon: Icons.lock_outline,
+                            title: 'Switch to Password',
+                            subtitle: 'Change from PIN to alphanumeric password',
+                            onTap: _navigateToChangePassword,
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        FutureBuilder<bool>(
+                          future: _authService.isBiometricAvailable(),
+                          builder: (context, snapshot) {
+                            if (snapshot.data == true) {
+                              return _buildOptionCard(
+                                icon: Icons.fingerprint,
+                                title: 'Enable Biometric',
+                                subtitle: 'Use fingerprint or face to unlock',
+                                onTap: _navigateToSetupBiometric,
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 32),
-                    if (_currentAuthMethod == 'password') ...[
-                      _buildOptionCard(
-                        icon: Icons.lock_outline,
-                        title: 'Change Password',
-                        subtitle: 'Update your current password',
-                        onTap: _navigateToChangePassword,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildOptionCard(
-                        icon: Icons.pin_outlined,
-                        title: 'Switch to PIN',
-                        subtitle: 'Change from password to 6-digit PIN',
-                        onTap: _navigateToChangePIN,
-                      ),
-                    ] else if (_currentAuthMethod == 'pin') ...[
-                      _buildOptionCard(
-                        icon: Icons.pin_outlined,
-                        title: 'Change PIN',
-                        subtitle: 'Update your current PIN',
-                        onTap: _navigateToChangePIN,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildOptionCard(
-                        icon: Icons.lock_outline,
-                        title: 'Switch to Password',
-                        subtitle: 'Change from PIN to alphanumeric password',
-                        onTap: _navigateToChangePassword,
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    FutureBuilder<bool>(
-                      future: _authService.isBiometricAvailable(),
-                      builder: (context, snapshot) {
-                        if (snapshot.data == true) {
-                          return _buildOptionCard(
-                            icon: Icons.fingerprint,
-                            title: 'Enable Biometric',
-                            subtitle: 'Use fingerprint or face to unlock',
-                            onTap: _navigateToSetupBiometric,
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ],
+                  ),
                 ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: context.isDarkMode
+              ? [
+                  const Color(0xFF0F0F12),
+                  const Color(0xFF1A1A2E),
+                  const Color(0xFF16213E),
+                ]
+              : [
+                  const Color(0xFFE8EEF5),
+                  const Color(0xFFF5F7FA),
+                  const Color(0xFFE4E9F2),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentMethodBadge() {
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.2),
+                width: 1,
               ),
             ),
+            child: Text(
+              'Current: ${_currentAuthMethod!.toUpperCase()}',
+              style: TextStyle(
+                fontSize: 14,
+                color: context.textSecondary,
+                fontFamily: 'ProductSans',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -171,62 +229,70 @@ class _ChangeSecurityScreenState extends State<ChangeSecurityScreen> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? AppColors.darkBackgroundSecondary
-              : AppColors.lightBackgroundSecondary,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppColors.darkBorder
-                : AppColors.lightBorder,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColors.accent, size: 28),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'ProductSans',
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? AppColors.darkTextPrimary
-                          : context.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontFamily: 'ProductSans',
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? AppColors.darkTextTertiary
-                          : context.textTertiary,
-                    ),
-                  ),
-                ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.white.withValues(alpha: 0.2),
+                width: 1,
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppColors.darkTextTertiary
-                  : context.textTertiary,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: context.accentColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: context.accentColor, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'ProductSans',
+                          color: context.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontFamily: 'ProductSans',
+                          color: context.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: context.textTertiary,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -387,7 +453,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: context.textPrimary),
@@ -409,93 +475,263 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           style: TextStyle(
             fontFamily: 'ProductSans',
             color: context.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: AppColors.accent,
-              ),
-            )
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 32),
-                    Text(
-                      subtitles[_step],
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: context.textSecondary,
-                        fontFamily: 'ProductSans',
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-                    TextField(
-                      controller: controllers[_step],
-                      obscureText: obscureValues[_step],
-                      decoration: InputDecoration(
-                        labelText: labels[_step],
-                        hintText: hints[_step],
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            obscureIcons[_step],
-                            color: context.textTertiary,
-                          ),
-                          onPressed: toggleCallbacks[_step],
-                        ),
-                      ),
-                      style: TextStyle(
-                        fontFamily: 'ProductSans',
-                        fontSize: 16,
-                      ),
-                      onChanged: (_) {
-                        if (_errorMessage != null) {
-                          setState(() {
-                            _errorMessage = null;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          _errorMessage!,
+      body: Stack(
+        children: [
+          _buildBackground(),
+          _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: context.accentColor,
+                  ),
+                )
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Spacer(),
+                        _buildIcon(),
+                        const SizedBox(height: 32),
+                        Text(
+                          subtitles[_step],
                           style: TextStyle(
-                            color: AppColors.error,
-                            fontSize: 14,
+                            fontSize: 18,
+                            color: context.textSecondary,
                             fontFamily: 'ProductSans',
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                    const Spacer(),
-                    ElevatedButton(
-                      onPressed: _handleContinue,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          _step == 2 ? 'Change Password' : 'Continue',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontFamily: 'ProductSans',
-                            fontWeight: FontWeight.w600,
-                          ),
+                        const SizedBox(height: 48),
+                        _buildInputField(
+                          controller: controllers[_step],
+                          obscureText: obscureValues[_step],
+                          label: labels[_step],
+                          hint: hints[_step],
+                          icon: obscureIcons[_step],
+                          onToggle: toggleCallbacks[_step],
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        if (_errorMessage != null) _buildError(),
+                        const Spacer(),
+                        _buildContinueButton(),
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                  ],
+                  ),
                 ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: context.isDarkMode
+              ? [
+                  const Color(0xFF0F0F12),
+                  const Color(0xFF1A1A2E),
+                  const Color(0xFF16213E),
+                ]
+              : [
+                  const Color(0xFFE8EEF5),
+                  const Color(0xFFF5F7FA),
+                  const Color(0xFFE4E9F2),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIcon() {
+    return Center(
+      child: Container(
+        width: 100,
+        height: 100,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: context.isDarkMode
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.white.withValues(alpha: 0.15),
+          border: Border.all(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: SvgPicture.asset(
+                'assets/locker_logo_nobg.svg',
+                fit: BoxFit.contain,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required bool obscureText,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required VoidCallback onToggle,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: obscureText,
+            style: TextStyle(
+              fontFamily: 'ProductSans',
+              fontSize: 16,
+              color: context.textPrimary,
+            ),
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              labelStyle: TextStyle(
+                fontFamily: 'ProductSans',
+                color: context.textSecondary,
+              ),
+              hintStyle: TextStyle(
+                fontFamily: 'ProductSans',
+                color: context.textTertiary,
+              ),
+              filled: true,
+              fillColor: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.black.withValues(alpha: 0.03),
+              suffixIcon: IconButton(
+                icon: Icon(icon, color: context.textTertiary),
+                onPressed: onToggle,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: context.accentColor, width: 2),
+              ),
+            ),
+            onChanged: (_) {
+              if (_errorMessage != null) {
+                setState(() {
+                  _errorMessage = null;
+                });
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.error.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.error.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            _errorMessage!,
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 14,
+              fontFamily: 'ProductSans',
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContinueButton() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _handleContinue,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Text(
+          _step == 2 ? 'Change Password' : 'Continue',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'ProductSans',
+            color: Colors.white,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -641,7 +877,7 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: context.textPrimary),
@@ -663,89 +899,258 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
           style: TextStyle(
             fontFamily: 'ProductSans',
             color: context.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: AppColors.accent,
-              ),
-            )
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 32),
-                    Text(
-                      subtitles[_step],
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: context.textSecondary,
-                        fontFamily: 'ProductSans',
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-                    TextField(
-                      controller: controllers[_step],
-                      obscureText: true,
-                      keyboardType: TextInputType.number,
-                      maxLength: _step >= 1 ? 6 : null,
-                      decoration: InputDecoration(
-                        labelText: labels[_step],
-                        hintText: hints[_step],
-                        counterText: '',
-                      ),
-                      style: TextStyle(
-                        fontFamily: 'ProductSans',
-                        fontSize: 16,
-                      ),
-                      onChanged: (_) {
-                        if (_errorMessage != null) {
-                          setState(() {
-                            _errorMessage = null;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          _errorMessage!,
+      body: Stack(
+        children: [
+          _buildBackground(),
+          _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: context.accentColor,
+                  ),
+                )
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Spacer(),
+                        _buildIcon(),
+                        const SizedBox(height: 32),
+                        Text(
+                          subtitles[_step],
                           style: TextStyle(
-                            color: AppColors.error,
-                            fontSize: 14,
+                            fontSize: 18,
+                            color: context.textSecondary,
                             fontFamily: 'ProductSans',
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                    const Spacer(),
-                    ElevatedButton(
-                      onPressed: _handleContinue,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          _step == 2 ? 'Change PIN' : 'Continue',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontFamily: 'ProductSans',
-                            fontWeight: FontWeight.w600,
-                          ),
+                        const SizedBox(height: 48),
+                        _buildInputField(
+                          controller: controllers[_step],
+                          label: labels[_step],
+                          hint: hints[_step],
+                          isNumeric: _step >= 1,
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        if (_errorMessage != null) _buildError(),
+                        const Spacer(),
+                        _buildContinueButton(),
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                  ],
+                  ),
                 ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: context.isDarkMode
+              ? [
+                  const Color(0xFF0F0F12),
+                  const Color(0xFF1A1A2E),
+                  const Color(0xFF16213E),
+                ]
+              : [
+                  const Color(0xFFE8EEF5),
+                  const Color(0xFFF5F7FA),
+                  const Color(0xFFE4E9F2),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIcon() {
+    return Center(
+      child: Container(
+        width: 100,
+        height: 100,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: context.isDarkMode
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.white.withValues(alpha: 0.15),
+          border: Border.all(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: SvgPicture.asset(
+                'assets/locker_logo_nobg.svg',
+                fit: BoxFit.contain,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required bool isNumeric,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: TextField(
+            controller: controller,
+            obscureText: true,
+            keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+            maxLength: isNumeric ? 6 : null,
+            style: TextStyle(
+              fontFamily: 'ProductSans',
+              fontSize: 16,
+              color: context.textPrimary,
+            ),
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              counterText: '',
+              labelStyle: TextStyle(
+                fontFamily: 'ProductSans',
+                color: context.textSecondary,
+              ),
+              hintStyle: TextStyle(
+                fontFamily: 'ProductSans',
+                color: context.textTertiary,
+              ),
+              filled: true,
+              fillColor: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.black.withValues(alpha: 0.03),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: context.accentColor, width: 2),
+              ),
+            ),
+            onChanged: (_) {
+              if (_errorMessage != null) {
+                setState(() {
+                  _errorMessage = null;
+                });
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.error.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.error.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            _errorMessage!,
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 14,
+              fontFamily: 'ProductSans',
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContinueButton() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _handleContinue,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Text(
+          _step == 2 ? 'Change PIN' : 'Continue',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'ProductSans',
+            color: Colors.white,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -808,7 +1213,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: context.textPrimary),
@@ -819,82 +1224,228 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
           style: TextStyle(
             fontFamily: 'ProductSans',
             color: context.textPrimary,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: AppColors.accent,
-              ),
-            )
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 32),
-                    Icon(
-                      Icons.fingerprint,
-                      size: 80,
-                      color: AppColors.accent,
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Use your fingerprint or face to unlock the app quickly',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: context.textSecondary,
-                        fontFamily: 'ProductSans',
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          _errorMessage!,
+      body: Stack(
+        children: [
+          _buildBackground(),
+          _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: context.accentColor,
+                  ),
+                )
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Spacer(),
+                        _buildIcon(),
+                        const SizedBox(height: 32),
+                        Text(
+                          'Quick & Secure Access',
                           style: TextStyle(
-                            color: AppColors.error,
-                            fontSize: 14,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: context.textPrimary,
                             fontFamily: 'ProductSans',
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                    if (_isAvailable)
-                      ElevatedButton(
-                        onPressed: _setupBiometric,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Text(
-                            'Enable Biometric',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontFamily: 'ProductSans',
-                              fontWeight: FontWeight.w600,
-                            ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Use your fingerprint or face to unlock the app quickly',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: context.textSecondary,
+                            fontFamily: 'ProductSans',
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                      )
-                    else
-                      Text(
-                        'Biometric authentication is not available on this device',
-                        style: TextStyle(
-                          color: AppColors.error,
-                          fontSize: 14,
-                          fontFamily: 'ProductSans',
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    const SizedBox(height: 24),
-                  ],
+                        const SizedBox(height: 48),
+                        if (_errorMessage != null) _buildError(),
+                        const Spacer(),
+                        if (_isAvailable) _buildSetupButton(),
+                        if (!_isAvailable) _buildUnavailableMessage(),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
                 ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: context.isDarkMode
+              ? [
+                  const Color(0xFF0F0F12),
+                  const Color(0xFF1A1A2E),
+                  const Color(0xFF16213E),
+                ]
+              : [
+                  const Color(0xFFE8EEF5),
+                  const Color(0xFFF5F7FA),
+                  const Color(0xFFE4E9F2),
+                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIcon() {
+    return Center(
+      child: Container(
+        width: 140,
+        height: 140,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: context.isDarkMode
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.white.withValues(alpha: 0.15),
+          border: Border.all(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.2),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: context.accentColor.withValues(alpha: 0.2),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: SvgPicture.asset(
+                'assets/locker_logo_nobg.svg',
+                fit: BoxFit.contain,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.error.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.error.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            _errorMessage!,
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 14,
+              fontFamily: 'ProductSans',
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSetupButton() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _setupBiometric,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: const Text(
+          'Enable Biometric',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'ProductSans',
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnavailableMessage() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            'Biometric authentication is not available on this device',
+            style: TextStyle(
+              color: context.textSecondary,
+              fontSize: 14,
+              fontFamily: 'ProductSans',
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
     );
   }
 }

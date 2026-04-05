@@ -1,9 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../themes/app_colors.dart';
 import '../services/auth_service.dart';
 import 'gallery_vault_screen.dart';
 
-/// Biometric setup screen
 class BiometricSetupScreen extends StatefulWidget {
   const BiometricSetupScreen({super.key});
 
@@ -36,14 +37,9 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
       _errorMessage = null;
     });
 
-    debugPrint('[Biometric Setup] Starting biometric setup...');
-
-    // Check if biometric is available
     final isAvailable = await _authService.isBiometricAvailable();
-    debugPrint('[Biometric Setup] Is biometric available: $isAvailable');
 
     if (!isAvailable) {
-      debugPrint('[Biometric Setup] Biometric not available');
       setState(() {
         _isLoading = false;
         _errorMessage =
@@ -52,12 +48,9 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
       return;
     }
 
-    // Check available biometrics
     final biometrics = await _authService.getAvailableBiometrics();
-    debugPrint('[Biometric Setup] Available biometrics: $biometrics');
 
     if (biometrics.isEmpty) {
-      debugPrint('[Biometric Setup] No biometrics enrolled');
       setState(() {
         _isLoading = false;
         _errorMessage =
@@ -66,13 +59,9 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
       return;
     }
 
-    // Attempt to setup biometric authentication
-    debugPrint('[Biometric Setup] Calling setupBiometricAuthentication...');
     final success = await _authService.setupBiometricAuthentication();
-    debugPrint('[Biometric Setup] Setup result: $success');
 
     if (success && mounted) {
-      debugPrint('[Biometric Setup] Success! Navigating to gallery...');
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => const GalleryVaultScreen(),
@@ -80,7 +69,6 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
         (route) => false,
       );
     } else if (mounted) {
-      debugPrint('[Biometric Setup] Failed or cancelled');
       setState(() {
         _isLoading = false;
         _errorMessage =
@@ -92,130 +80,212 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.lightTextPrimary),
+          icon: Icon(Icons.arrow_back, color: context.textPrimary),
           onPressed: _isLoading ? null : () => Navigator.pop(context),
         ),
         title: Text(
           'Biometric Setup',
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
           ),
         ),
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 32),
-
-              // Icon
-              Center(
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: AppColors.accentLight.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.fingerprint,
-                    size: 64,
-                    color: AppColors.accent,
-                  ),
-                ),
+      body: Stack(
+        children: [
+          _buildBackground(),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  const Spacer(),
+                  _buildIcon(),
+                  const SizedBox(height: 32),
+                  _buildTitle(),
+                  const SizedBox(height: 16),
+                  _buildDescription(),
+                  const SizedBox(height: 32),
+                  if (_errorMessage != null) _buildError(),
+                  const Spacer(),
+                  _buildSetupButton(),
+                  const SizedBox(height: 24),
+                ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              const SizedBox(height: 32),
+  Widget _buildBackground() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: context.isDarkMode
+              ? [
+                  const Color(0xFF0F0F12),
+                  const Color(0xFF1A1A2E),
+                  const Color(0xFF16213E),
+                ]
+              : [
+                  const Color(0xFFE8EEF5),
+                  const Color(0xFFF5F7FA),
+                  const Color(0xFFE4E9F2),
+                ],
+        ),
+      ),
+    );
+  }
 
-              // Title
-              Text(
-                'Set up $_biometricType',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.lightTextPrimary,
-                  fontFamily: 'ProductSans',
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 16),
-
-              // Description
-              Text(
-                'Use your device\'s $_biometricType to quickly and securely unlock your media vault.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.lightTextSecondary,
-                  fontFamily: 'ProductSans',
-                ),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 32),
-
-              // Error Message
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(
-                        color: AppColors.error,
-                        fontSize: 14,
-                        fontFamily: 'ProductSans',
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-
-              const Spacer(),
-
-              // Setup Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleSetupBiometric,
-                child: _isLoading
-                    ? SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          'Set up $_biometricType',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontFamily: 'ProductSans',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-              ),
-
-              const SizedBox(height: 24),
-            ],
+  Widget _buildIcon() {
+    return Container(
+      width: 140,
+      height: 140,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: context.isDarkMode
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.15),
+        border: Border.all(
+          color: context.isDarkMode
+              ? Colors.white.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.2),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.2),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: SvgPicture.asset(
+              'assets/locker_logo_nobg.svg',
+              fit: BoxFit.contain,
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTitle() {
+    return Text(
+      'Set up $_biometricType',
+      style: TextStyle(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        color: context.textPrimary,
+        fontFamily: 'ProductSans',
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  Widget _buildDescription() {
+    return Text(
+      'Use your device\'s $_biometricType to quickly and securely unlock your media vault.',
+      style: TextStyle(
+        fontSize: 16,
+        color: context.textSecondary,
+        fontFamily: 'ProductSans',
+        height: 1.5,
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+
+  Widget _buildError() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.error.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: AppColors.error.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            _errorMessage!,
+            style: TextStyle(
+              color: AppColors.error,
+              fontSize: 14,
+              fontFamily: 'ProductSans',
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSetupButton() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleSetupBiometric,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                'Set up $_biometricType',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'ProductSans',
+                  color: Colors.white,
+                ),
+              ),
       ),
     );
   }
