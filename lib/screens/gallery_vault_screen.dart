@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/vaulted_file.dart';
@@ -26,6 +28,7 @@ import 'package:photo_manager/photo_manager.dart' hide AlbumType;
 import 'camera_screen.dart';
 import 'local_backup_screen.dart';
 import 'change_security_screen.dart';
+import 'accent_color_picker_screen.dart';
 import '../widgets/operation_progress_sheet.dart';
 
 /// Gallery vault screen - main screen after authentication
@@ -1345,68 +1348,135 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     }
 
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: context.backgroundSecondary,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 64, color: AppColors.lightTextTertiary),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: context.textPrimary,
-              fontFamily: 'ProductSans',
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 14,
-              color: context.textSecondary,
-              fontFamily: 'ProductSans',
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _showImportDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('Add Files'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: context.isDarkMode
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.white.withValues(alpha: 0.15),
+                border: Border.all(
+                  color: context.isDarkMode
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Icon(
+                    icon,
+                    size: 72,
+                    color: context.accentColor.withValues(alpha: 0.6),
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 32),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: context.textPrimary,
+                fontFamily: 'ProductSans',
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 15,
+                color: context.textSecondary,
+                fontFamily: 'ProductSans',
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    context.accentColor,
+                    context.accentColor.withValues(alpha: 0.8),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: context.accentColor.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _showImportDialog,
+                icon: const Icon(Icons.add, color: Colors.white),
+                label: const Text(
+                  'Add Files',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 28, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildFAB() {
-    return FloatingActionButton.extended(
-      onPressed: _showImportDialog,
-      backgroundColor: AppColors.accent,
-      icon: const Icon(Icons.add, color: Colors.white),
-      label: const Text(
-        'Import',
-        style: TextStyle(
-          fontFamily: 'ProductSans',
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.accentColor.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: FloatingActionButton.extended(
+        onPressed: _showImportDialog,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Import',
+          style: TextStyle(
+            fontFamily: 'ProductSans',
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            fontSize: 15,
+          ),
         ),
       ),
     );
@@ -1414,135 +1484,261 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
   Widget _buildDrawer() {
     return Drawer(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      backgroundColor: Colors.transparent,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(0),
+          bottomRight: Radius.circular(0),
+        ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
             decoration: BoxDecoration(
-              color: AppColors.accent,
+              color: context.isDarkMode
+                  ? Colors.black.withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.7),
+              border: Border(
+                right: BorderSide(
+                  color: context.isDarkMode
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.1),
+                  width: 1,
+                ),
+              ),
             ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+            child: Column(
+              children: [
+                _buildDrawerHeader(),
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      _buildDrawerItem(
+                        icon: Icons.folder_outlined,
+                        title: 'Albums',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const AlbumsScreen()),
+                          );
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.favorite_outline,
+                        title: 'Favorites',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const FavoritesScreen()),
+                          );
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.label_outline,
+                        title: 'Tags',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const TagsScreen()),
+                          );
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        child: Divider(
+                          color: context.isDarkMode
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.black.withValues(alpha: 0.1),
+                          thickness: 1,
+                        ),
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.security,
+                        title: 'Security Settings',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showSettingsSheet();
+                        },
+                      ),
+                      _buildDrawerItem(
+                        icon: Icons.shield_outlined,
+                        title: 'Decoy Mode',
+                        subtitle: 'Set up fake vault',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showDecoyModeSheet();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            context.accentColor,
+            context.accentColor.withValues(alpha: 0.8),
+          ],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: SvgPicture.asset(
+                    'assets/locker_logo_nobg.svg',
+                    fit: BoxFit.contain,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Locker',
+              style: TextStyle(
+                fontFamily: 'ProductSans',
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Consumer(
+              builder: (context, ref, _) {
+                final storageAsync = ref.watch(formattedStorageProvider);
+                final countAsync = ref.watch(fileCountSummaryProvider);
+
+                return Text(
+                  '${countAsync.value ?? '...'} • ${storageAsync.value ?? '...'}',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 14,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
                 children: [
                   Container(
-                    width: 64,
-                    height: 64,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(16),
+                      color: context.accentColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Image.asset(
-                      'assets/padlock.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Locker',
-                    style: TextStyle(
-                      fontFamily: 'ProductSans',
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+                    child: Icon(
+                      icon,
+                      color: context.accentColor,
+                      size: 22,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final storageAsync = ref.watch(formattedStorageProvider);
-                      final countAsync = ref.watch(fileCountSummaryProvider);
-
-                      return Text(
-                        '${countAsync.value ?? '...'} • ${storageAsync.value ?? '...'}',
-                        style: TextStyle(
-                          fontFamily: 'ProductSans',
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 14,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontFamily: 'ProductSans',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: context.textPrimary,
+                          ),
                         ),
-                      );
-                    },
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              fontSize: 12,
+                              color: context.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: context.textTertiary,
+                    size: 20,
                   ),
                 ],
               ),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.folder_outlined),
-            title: const Text(
-              'Albums',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AlbumsScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.favorite_outline),
-            title: const Text(
-              'Favorites',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const FavoritesScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.label_outline),
-            title: const Text(
-              'Tags',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const TagsScreen()),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.security),
-            title: const Text(
-              'Security Settings',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _showSettingsSheet();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.shield_outlined),
-            title: const Text(
-              'Decoy Mode',
-              style: TextStyle(fontFamily: 'ProductSans'),
-            ),
-            subtitle: const Text(
-              'Set up fake vault',
-              style: TextStyle(fontFamily: 'ProductSans', fontSize: 12),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _showDecoyModeSheet();
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2289,6 +2485,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                       ),
                       const SizedBox(height: 16),
                       _buildThemeToggle(context, ref),
+                      const SizedBox(height: 8),
+                      _buildAccentColorOption(context, ref),
                       const SizedBox(height: 16),
                       settingsAsync.when(
                         loading: () =>
@@ -2411,6 +2609,55 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         ref.read(themeModeProvider.notifier).toggleTheme();
       },
       activeThumbColor: context.accentColor,
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+
+  Widget _buildAccentColorOption(BuildContext context, WidgetRef ref) {
+    final accentColor = ref.watch(accentColorProvider);
+
+    return ListTile(
+      leading: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              accentColor.getColor(context.isDarkMode ? Brightness.dark : Brightness.light),
+              accentColor.getVariantColor(context.isDarkMode ? Brightness.dark : Brightness.light),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.2)
+                : Colors.black.withValues(alpha: 0.1),
+            width: 1.5,
+          ),
+        ),
+      ),
+      title: const Text(
+        'Accent Color',
+        style: TextStyle(fontFamily: 'ProductSans'),
+      ),
+      subtitle: Text(
+        accentColor.name,
+        style: TextStyle(
+          fontFamily: 'ProductSans',
+          fontSize: 12,
+          color: context.textTertiary,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AccentColorPickerScreen(),
+          ),
+        );
+      },
       contentPadding: EdgeInsets.zero,
     );
   }
