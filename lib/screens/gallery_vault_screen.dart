@@ -25,6 +25,7 @@ import 'document_picker_screen.dart';
 import 'package:photo_manager/photo_manager.dart' hide AlbumType;
 import 'camera_screen.dart';
 import 'local_backup_screen.dart';
+import 'change_security_screen.dart';
 
 /// Gallery vault screen - main screen after authentication
 class GalleryVaultScreen extends ConsumerStatefulWidget {
@@ -2214,6 +2215,33 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                         ),
                       ),
                       const SizedBox(height: 16),
+                      ListTile(
+                        leading: Icon(Icons.security_outlined,
+                            color: AppColors.accent),
+                        title: const Text(
+                          'Change Security',
+                          style: TextStyle(fontFamily: 'ProductSans'),
+                        ),
+                        subtitle: Text(
+                          'Change password, PIN, or biometric',
+                          style: TextStyle(
+                            fontFamily: 'ProductSans',
+                            fontSize: 12,
+                            color: context.textTertiary,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const ChangeSecurityScreen(),
+                            ),
+                          );
+                        },
+                        contentPadding: EdgeInsets.zero,
+                      ),
                       ListTile(
                         leading: Icon(Icons.backup_outlined,
                             color: AppColors.accent),
