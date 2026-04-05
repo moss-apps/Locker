@@ -418,19 +418,19 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBackground,
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.lightBackground,
+        backgroundColor: context.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.close, color: AppColors.lightTextPrimary),
+          icon: Icon(Icons.close, color: context.textPrimary),
           onPressed: () => Navigator.pop(context, null),
         ),
         title: Text(
           widget.title,
           style: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextPrimary,
+            color: context.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -480,12 +480,12 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
           hintText: 'Search documents...',
           hintStyle: TextStyle(
             fontFamily: 'ProductSans',
-            color: AppColors.lightTextTertiary,
+            color: context.textTertiary,
           ),
-          prefixIcon: Icon(Icons.search, color: AppColors.lightTextTertiary),
+          prefixIcon: Icon(Icons.search, color: context.textTertiary),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear, color: AppColors.lightTextTertiary),
+                  icon: Icon(Icons.clear, color: context.textTertiary),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
@@ -493,7 +493,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                 )
               : null,
           filled: true,
-          fillColor: AppColors.lightBackgroundSecondary,
+          fillColor: context.backgroundSecondary,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -503,7 +503,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
         ),
         style: TextStyle(
           fontFamily: 'ProductSans',
-          color: AppColors.lightTextPrimary,
+          color: context.textPrimary,
         ),
       ),
     );
@@ -531,21 +531,20 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.folder, size: 18, color: AppColors.accent),
+                    Icon(Icons.folder, size: 18, color: context.accentColor),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
                         _currentFolder,
                         style: TextStyle(
                           fontFamily: 'ProductSans',
-                          color: AppColors.lightTextPrimary,
+                          color: context.textPrimary,
                           fontWeight: FontWeight.w500,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Icon(Icons.arrow_drop_down,
-                        color: AppColors.lightTextSecondary),
+                    Icon(Icons.arrow_drop_down, color: context.textSecondary),
                   ],
                 ),
               ),
@@ -560,7 +559,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                             ? Icons.folder_special
                             : Icons.folder,
                         size: 18,
-                        color: AppColors.accent,
+                        color: context.accentColor,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -573,7 +572,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                         '($count)',
                         style: TextStyle(
                           fontFamily: 'ProductSans',
-                          color: AppColors.lightTextTertiary,
+                          color: context.textTertiary,
                           fontSize: 12,
                         ),
                       ),
@@ -599,11 +598,9 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.sort,
-                      size: 18, color: AppColors.lightTextSecondary),
+                  Icon(Icons.sort, size: 18, color: context.textSecondary),
                   const SizedBox(width: 4),
-                  Icon(Icons.arrow_drop_down,
-                      color: AppColors.lightTextSecondary),
+                  Icon(Icons.arrow_drop_down, color: context.textSecondary),
                 ],
               ),
             ),
@@ -613,7 +610,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                 child: Row(
                   children: [
                     if (option == _sortOption)
-                      Icon(Icons.check, size: 18, color: AppColors.accent)
+                      Icon(Icons.check, size: 18, color: context.accentColor)
                     else
                       const SizedBox(width: 18),
                     const SizedBox(width: 8),
@@ -637,7 +634,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(AppColors.accent),
+            valueColor: AlwaysStoppedAnimation(context.accentColor),
           ),
           const SizedBox(height: 16),
           Text(
@@ -645,7 +642,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
             style: TextStyle(
               fontFamily: 'ProductSans',
               fontSize: 16,
-              color: AppColors.lightTextSecondary,
+              color: context.textSecondary,
             ),
           ),
         ],
@@ -672,7 +669,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
               style: TextStyle(
                 fontFamily: 'ProductSans',
                 fontSize: 16,
-                color: AppColors.lightTextSecondary,
+                color: context.textSecondary,
               ),
             ),
             const SizedBox(height: 24),
@@ -681,7 +678,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
+                backgroundColor: context.accentColor,
                 foregroundColor: Colors.white,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -704,7 +701,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
           Icon(
             Icons.description_outlined,
             size: 64,
-            color: AppColors.lightTextTertiary,
+            color: context.textTertiary,
           ),
           const SizedBox(height: 16),
           Text(
@@ -714,7 +711,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
             style: TextStyle(
               fontFamily: 'ProductSans',
               fontSize: 18,
-              color: AppColors.lightTextSecondary,
+              color: context.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -724,7 +721,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
             style: TextStyle(
               fontFamily: 'ProductSans',
               fontSize: 14,
-              color: AppColors.lightTextTertiary,
+              color: context.textTertiary,
             ),
           ),
         ],
@@ -751,8 +748,8 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: isSelected
-            ? AppColors.accent.withValues(alpha: 0.1)
-            : AppColors.lightBackgroundSecondary,
+            ? context.accentColor.withValues(alpha: 0.1)
+            : context.backgroundSecondary,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => _toggleSelection(doc),
@@ -787,7 +784,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                           fontFamily: 'ProductSans',
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.lightTextPrimary,
+                          color: context.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -800,7 +797,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                             style: TextStyle(
                               fontFamily: 'ProductSans',
                               fontSize: 12,
-                              color: AppColors.lightTextSecondary,
+                              color: context.textSecondary,
                             ),
                           ),
                           Container(
@@ -808,7 +805,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                             width: 3,
                             height: 3,
                             decoration: BoxDecoration(
-                              color: AppColors.lightTextTertiary,
+                              color: context.textTertiary,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -817,7 +814,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                             style: TextStyle(
                               fontFamily: 'ProductSans',
                               fontSize: 12,
-                              color: AppColors.lightTextSecondary,
+                              color: context.textSecondary,
                             ),
                           ),
                           Container(
@@ -825,7 +822,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                             width: 3,
                             height: 3,
                             decoration: BoxDecoration(
-                              color: AppColors.lightTextTertiary,
+                              color: context.textTertiary,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -862,11 +859,12 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isSelected
-                        ? AppColors.accent
+                        ? context.accentColor
                         : Colors.white.withValues(alpha: 0.7),
                     border: Border.all(
-                      color:
-                          isSelected ? AppColors.accent : Colors.grey.shade400,
+                      color: isSelected
+                          ? context.accentColor
+                          : Colors.grey.shade400,
                       width: 2,
                     ),
                     boxShadow: [
@@ -925,7 +923,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                 fontFamily: 'ProductSans',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: AppColors.lightTextPrimary,
+                color: context.textPrimary,
               ),
             ),
           ),
@@ -934,7 +932,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
             icon: const Icon(Icons.check, size: 20),
             label: const Text('Hide Selected'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
