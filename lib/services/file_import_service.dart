@@ -150,16 +150,17 @@ class FileImportService {
       int totalSize = 0;
       int processedSize = 0;
 
-      // Calculate total size first
+      // First pass: get file sizes by getting the file and checking length
+      // This is async but faster than processing the full files
       for (final asset in assets) {
-        final file = await asset.file;
-        if (file != null) {
-          try {
-            totalSize += await file.length();
-          } catch (e) {
-            debugPrint(
-                '[FileImport] Could not get size for ${asset.title}: $e');
+        try {
+          final file = await asset.file;
+          if (file != null) {
+            final length = await file.length();
+            totalSize += length;
           }
+        } catch (e) {
+          debugPrint('[FileImport] Could not get size for asset: $e');
         }
       }
 
@@ -178,6 +179,13 @@ class FileImportService {
           final filePath = file.path;
           final fileName =
               asset.title ?? 'unknown_${DateTime.now().millisecondsSinceEpoch}';
+
+          // Get file size for progress tracking
+          try {
+            processedSize += await file.length();
+          } catch (e) {
+            debugPrint('[FileImport] Could not get file size: $e');
+          }
 
           // Determine file type
           VaultedFileType type;
@@ -202,18 +210,9 @@ class FileImportService {
           ));
           validAssets.add(asset);
 
-          // Get file size for progress tracking
-          int fileSize = 0;
-          try {
-            fileSize = await File(filePath).length();
-            processedSize += fileSize;
-          } catch (e) {
-            debugPrint('[FileImport] Could not get file size: $e');
-          }
-
           processed++;
           onProgress?.call(processed, assets.length,
-              currentSize: processedSize, totalSize: totalSize);
+              currentSize: processedSize, totalSize: processedSize);
 
           debugPrint(
               '[FileImport] Prepared asset for import: $fileName (path: $filePath)');
@@ -236,7 +235,13 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false, // We handle deletion via PhotoManager
-        onProgress: onProgress,
+        onProgress: (current, total) {
+          // Map the vault service progress - estimate size progress proportionally
+          final estimatedSize =
+              totalSize > 0 ? (current / total * totalSize).round() : 0;
+          onProgress?.call(current, total,
+              currentSize: estimatedSize, totalSize: totalSize);
+        },
       );
 
       debugPrint('[FileImport] Imported ${imported.length} files to vault');
