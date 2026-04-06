@@ -1,12 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'themes/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'services/auth_service.dart';
 import 'screens/auth_method_selection_screen.dart';
 import 'screens/unlock_screen.dart';
+import 'utils/frame_rate_optimizer.dart';
+import 'utils/performance_config.dart';
 
-void main() => runApp(const ProviderScope(child: LockerApp()));
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Configure high frame rate support
+  PerformanceConfig.configureHighFrameRate();
+  PerformanceConfig.optimizeImageCache();
+  
+  // Start frame rate monitoring
+  FrameRateOptimizer().startMonitoring();
+  
+  // Set preferred orientations and system UI
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  
+  runApp(const ProviderScope(child: LockerApp()));
+}
 
 class LockerApp extends ConsumerWidget {
   const LockerApp({super.key});

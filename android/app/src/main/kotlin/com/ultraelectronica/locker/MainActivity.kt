@@ -1,5 +1,8 @@
 package com.ultraelectronica.locker
 
+import android.os.Build
+import android.view.Display
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 
 import io.flutter.embedding.engine.FlutterEngine
@@ -11,6 +14,10 @@ class MainActivity: FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        
+        // Enable high frame rate
+        enableHighFrameRate()
+        
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "setAutoKillEnabled") {
                 isAutoKillEnabled = call.arguments as Boolean
@@ -19,6 +26,54 @@ class MainActivity: FlutterFragmentActivity() {
                 result.notImplemented()
             }
         }
+    }
+    
+    private fun enableHighFrameRate() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.attributes.preferredDisplayModeId = getPreferredDisplayMode().modeId
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val display = windowManager.defaultDisplay
+            val modes = display.supportedModes
+            var bestMode: Display.Mode? = null
+            for (mode in modes) {
+                if (bestMode == null || mode.refreshRate > bestMode.refreshRate) {
+                    bestMode = mode
+                }
+            }
+            bestMode?.let {
+                val params = window.attributes
+                params.preferredDisplayModeId = it.modeId
+                window.attributes = params
+            }
+        }
+    }
+    
+    private fun getPreferredDisplayMode(): Display.Mode {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val display = display
+            if (display != null) {
+                val modes = display.supportedModes
+                var bestMode: Display.Mode = modes[0]
+                for (mode in modes) {
+                    if (mode.refreshRate > bestMode.refreshRate) {
+                        bestMode = mode
+                    }
+                }
+                return bestMode
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val display = windowManager.defaultDisplay
+            val modes = display.supportedModes
+            var bestMode: Display.Mode = modes[0]
+            for (mode in modes) {
+                if (mode.refreshRate > bestMode.refreshRate) {
+                    bestMode = mode
+                }
+            }
+            return bestMode
+        }
+        @Suppress("DEPRECATION")
+        return windowManager.defaultDisplay.supportedModes[0]
     }
     
     override fun onPause() {

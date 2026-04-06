@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../themes/app_colors.dart';
 
 // Custom PIN input widget with numeric keypad.
@@ -39,6 +41,8 @@ class PinInputWidget extends StatefulWidget {
 class _PinInputWidgetState extends State<PinInputWidget> {
   String _pin = '';
   final int _pinLength = 6;
+  final FocusNode _focusNode = FocusNode();
+  final TextEditingController _textController = TextEditingController();
 
   @override
   void initState() {
@@ -57,28 +61,22 @@ class _PinInputWidgetState extends State<PinInputWidget> {
   @override
   void dispose() {
     widget.controller?._detach();
+    _focusNode.dispose();
+    _textController.dispose();
     super.dispose();
   }
 
-  void _addDigit(String digit) {
-    if (_pin.length < _pinLength) {
-      setState(() {
-        _pin += digit;
-      });
-      widget.onPinChanged?.call();
+  void _handlePinChanged(String value) {
+    final nextPin = value.length > _pinLength ? value.substring(0, _pinLength) : value;
+    if (nextPin == _pin) return;
 
-      if (_pin.length == _pinLength) {
-        widget.onPinComplete(_pin);
-      }
-    }
-  }
+    setState(() {
+      _pin = nextPin;
+    });
+    widget.onPinChanged?.call();
 
-  void _removeDigit() {
-    if (_pin.isNotEmpty) {
-      setState(() {
-        _pin = _pin.substring(0, _pin.length - 1);
-      });
-      widget.onPinChanged?.call();
+    if (_pin.length == _pinLength) {
+      widget.onPinComplete(_pin);
     }
   }
 
@@ -86,126 +84,112 @@ class _PinInputWidgetState extends State<PinInputWidget> {
     setState(() {
       _pin = '';
     });
+    _textController.clear();
+    FocusScope.of(context).requestFocus(_focusNode);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // PIN Display
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_pinLength, (index) {
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: index < _pin.length
-                    ? AppColors.accent
-                    : AppColors.lightBorder,
-                border: Border.all(
-                  color: index < _pin.length
-                      ? AppColors.accent
-                      : AppColors.lightBorder,
-                  width: 2,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).requestFocus(_focusNode),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'PIN',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textSecondary,
+                  ),
                 ),
-              ),
-            );
-          }),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Error Message
-        if (widget.errorMessage != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Text(
-              widget.errorMessage!,
-              style: TextStyle(
-                color: AppColors.error,
-                fontSize: 14,
-                fontFamily: 'ProductSans',
-              ),
-            ),
-          ),
-
-        const SizedBox(height: 32),
-
-        // Numeric Keypad
-        SizedBox(
-          width: 280,
-          child: Column(
-            children: [
-              _buildKeypadRow(['1', '2', '3']),
-              const SizedBox(height: 16),
-              _buildKeypadRow(['4', '5', '6']),
-              const SizedBox(height: 16),
-              _buildKeypadRow(['7', '8', '9']),
-              const SizedBox(height: 16),
-              _buildKeypadRow(['', '0', 'delete']),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildKeypadRow(List<String> keys) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: keys.map((key) {
-        if (key.isEmpty) {
-          return const SizedBox(width: 70, height: 70);
-        }
-
-        if (key == 'delete') {
-          return InkWell(
-            onTap: _removeDigit,
-            borderRadius: BorderRadius.circular(35),
-            child: Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.lightBackgroundSecondary,
-              ),
-              child: Icon(
-                Icons.backspace_outlined,
-                color: AppColors.lightTextPrimary,
-                size: 24,
-              ),
-            ),
-          );
-        }
-
-        return InkWell(
-          onTap: () => _addDigit(key),
-          borderRadius: BorderRadius.circular(35),
-          child: Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.lightBackgroundSecondary,
-            ),
-            child: Center(
-              child: Text(
-                key,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.lightTextPrimary,
-                  fontFamily: 'ProductSans',
+                const SizedBox(height: 6),
+                Text(
+                  'Enter your 6-digit PIN',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textTertiary,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(_pinLength, (index) {
+                    final isFilled = index < _pin.length;
+                    return Container(
+                      width: 44,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: context.isDarkMode
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isFilled
+                              ? context.accentColor.withValues(alpha: 0.8)
+                              : context.isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.15)
+                                  : Colors.black.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Center(
+                        child: isFilled
+                            ? Text(
+                                '•',
+                                style: TextStyle(
+                                  color: context.textPrimary,
+                                  fontSize: 20,
+                                  fontFamily: 'ProductSans',
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    );
+                  }),
+                ),
+                SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: TextField(
+                    controller: _textController,
+                    focusNode: _focusNode,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: _pinLength,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(_pinLength),
+                    ],
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                    ),
+                    onChanged: _handlePinChanged,
+                  ),
+                ),
+              ],
             ),
           ),
-        );
-      }).toList(),
+        ),
+      ),
     );
   }
 

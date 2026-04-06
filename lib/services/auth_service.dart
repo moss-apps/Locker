@@ -17,6 +17,8 @@ class AuthService {
 
   static const String _passwordHashKey = 'user_password_hash';
   static const String _pinHashKey = 'user_pin_hash';
+  static const String _backupPasswordHashKey = 'backup_password_hash';
+  static const String _backupPinHashKey = 'backup_pin_hash';
   static const String _firstTimeKey = 'is_first_time';
   static const String _biometricsEnabledKey = 'biometrics_enabled';
   static const String _authMethodKey =
@@ -90,6 +92,32 @@ class AuthService {
 
       final passwordHash = _hashPassword(password);
       return passwordHash == storedHash;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Verify backup password (used when current auth is biometric)
+  Future<bool> verifyBackupPassword(String password) async {
+    try {
+      final storedHash = await _storage.read(key: _backupPasswordHashKey);
+      if (storedHash == null) return false;
+
+      final passwordHash = _hashPassword(password);
+      return passwordHash == storedHash;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Verify backup PIN (used when current auth is biometric)
+  Future<bool> verifyBackupPin(String pin) async {
+    try {
+      final storedHash = await _storage.read(key: _backupPinHashKey);
+      if (storedHash == null) return false;
+
+      final pinHash = _hashPassword(pin);
+      return pinHash == storedHash;
     } catch (e) {
       return false;
     }
@@ -218,6 +246,22 @@ class AuthService {
       if (isAuthenticated) {
         debugPrint('[AuthService] Saving biometric settings...');
         await setBiometricEnabled(true);
+
+        // Store current credentials as backup before switching to biometric
+        final currentMethod = await getAuthMethod();
+        if (currentMethod == 'password') {
+          final currentPassword = await _storage.read(key: _passwordHashKey);
+          if (currentPassword != null) {
+            await _storage.write(
+                key: _backupPasswordHashKey, value: currentPassword);
+          }
+        } else if (currentMethod == 'pin') {
+          final currentPin = await _storage.read(key: _pinHashKey);
+          if (currentPin != null) {
+            await _storage.write(key: _backupPinHashKey, value: currentPin);
+          }
+        }
+
         await _storage.write(key: _firstTimeKey, value: 'false');
         await _storage.write(key: _authMethodKey, value: 'biometric');
         debugPrint('[AuthService] Biometric setup complete');
@@ -256,6 +300,16 @@ class AuthService {
       return await _storage.read(key: _authMethodKey);
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Set the authentication method type
+  Future<bool> setAuthMethod(String method) async {
+    try {
+      await _storage.write(key: _authMethodKey, value: method);
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 

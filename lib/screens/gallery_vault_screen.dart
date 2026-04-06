@@ -1773,60 +1773,62 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           color: context.backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: context.borderColor,
-                borderRadius: BorderRadius.circular(2),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sort By',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: context.textPrimary,
-                      fontFamily: 'ProductSans',
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sort By',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: context.textPrimary,
+                        fontFamily: 'ProductSans',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  ...SortOption.values.map((option) => ListTile(
-                        leading: Icon(
-                          currentSort == option
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_off,
-                          color: currentSort == option
-                              ? context.accentColor
-                              : AppColors.lightTextTertiary,
-                        ),
-                        title: Text(
-                          option.displayName,
-                          style: TextStyle(
-                            fontFamily: 'ProductSans',
-                            color: context.textPrimary,
+                    const SizedBox(height: 16),
+                    ...SortOption.values.map((option) => ListTile(
+                          leading: Icon(
+                            currentSort == option
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            color: currentSort == option
+                                ? context.accentColor
+                                : AppColors.lightTextTertiary,
                           ),
-                        ),
-                        onTap: () {
-                          ref.read(sortOptionProvider.notifier).state = option;
-                          Navigator.pop(context);
-                        },
-                        contentPadding: EdgeInsets.zero,
-                      )),
-                ],
+                          title: Text(
+                            option.displayName,
+                            style: TextStyle(
+                              fontFamily: 'ProductSans',
+                              color: context.textPrimary,
+                            ),
+                          ),
+                          onTap: () {
+                            ref.read(sortOptionProvider.notifier).state = option;
+                            Navigator.pop(context);
+                          },
+                          contentPadding: EdgeInsets.zero,
+                        )),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom),
-          ],
+              SizedBox(height: MediaQuery.of(context).padding.bottom),
+            ],
+          ),
         ),
       ),
     );
@@ -1846,87 +1848,89 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(24)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: context.borderColor,
-                    borderRadius: BorderRadius.circular(2),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: context.borderColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Add to Album',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: context.textPrimary,
-                          fontFamily: 'ProductSans',
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Add to Album',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: context.textPrimary,
+                            fontFamily: 'ProductSans',
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      albumsAsync.when(
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (_, __) => const Text('Failed to load albums'),
-                        data: (albums) => Column(
-                          children: albums
-                              .where((a) =>
-                                  !a.isDefault || a.type == AlbumType.favorites)
-                              .map((album) => ListTile(
-                                    leading: Icon(
-                                      Icons.folder_outlined,
-                                      color: context.accentColor,
-                                    ),
-                                    title: Text(
-                                      album.name,
-                                      style: const TextStyle(
-                                        fontFamily: 'ProductSans',
+                        const SizedBox(height: 16),
+                        albumsAsync.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (_, __) => const Text('Failed to load albums'),
+                          data: (albums) => Column(
+                            children: albums
+                                .where((a) =>
+                                    !a.isDefault || a.type == AlbumType.favorites)
+                                .map((album) => ListTile(
+                                      leading: Icon(
+                                        Icons.folder_outlined,
+                                        color: context.accentColor,
                                       ),
-                                    ),
-                                    subtitle: Text(
-                                      '${album.fileCount} items',
-                                      style: TextStyle(
-                                        fontFamily: 'ProductSans',
-                                        fontSize: 12,
-                                        color: context.textTertiary,
+                                      title: Text(
+                                        album.name,
+                                        style: const TextStyle(
+                                          fontFamily: 'ProductSans',
+                                        ),
                                       ),
-                                    ),
-                                    onTap: () async {
-                                      Navigator.pop(context);
-                                      final success = await ref
-                                          .read(vaultNotifierProvider.notifier)
-                                          .addToAlbum(
-                                            selectedFiles.toList(),
-                                            album.id,
-                                          );
-                                      if (success) {
-                                        ToastUtils.showSuccess(
-                                            'Added to ${album.name}');
-                                        _exitSelectionMode();
-                                      } else {
-                                        ToastUtils.showError(
-                                            'Failed to add to album');
-                                      }
-                                    },
-                                    contentPadding: EdgeInsets.zero,
-                                  ))
-                              .toList(),
+                                      subtitle: Text(
+                                        '${album.fileCount} items',
+                                        style: TextStyle(
+                                          fontFamily: 'ProductSans',
+                                          fontSize: 12,
+                                          color: context.textTertiary,
+                                        ),
+                                      ),
+                                      onTap: () async {
+                                        Navigator.pop(context);
+                                        final success = await ref
+                                            .read(vaultNotifierProvider.notifier)
+                                            .addToAlbum(
+                                              selectedFiles.toList(),
+                                              album.id,
+                                            );
+                                        if (success) {
+                                          ToastUtils.showSuccess(
+                                              'Added to ${album.name}');
+                                          _exitSelectionMode();
+                                        } else {
+                                          ToastUtils.showError(
+                                              'Failed to add to album');
+                                        }
+                                      },
+                                      contentPadding: EdgeInsets.zero,
+                                    ))
+                                .toList(),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                SizedBox(height: MediaQuery.of(context).padding.bottom),
-              ],
+                  SizedBox(height: MediaQuery.of(context).padding.bottom),
+                ],
+              ),
             ),
           );
         },

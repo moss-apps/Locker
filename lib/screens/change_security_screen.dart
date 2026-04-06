@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../themes/app_colors.dart';
 import '../services/auth_service.dart';
@@ -138,8 +139,30 @@ class _ChangeSecurityScreenState extends State<ChangeSecurityScreen> {
                           _buildOptionCard(
                             icon: Icons.lock_outline,
                             title: 'Switch to Password',
-                            subtitle: 'Change from PIN to alphanumeric password',
+                            subtitle:
+                                'Change from PIN to alphanumeric password',
                             onTap: _navigateToChangePassword,
+                          ),
+                        ] else if (_currentAuthMethod == 'biometric') ...[
+                          _buildOptionCard(
+                            icon: Icons.fingerprint,
+                            title: 'Change Biometric',
+                            subtitle: 'Update your biometric settings',
+                            onTap: _navigateToSetupBiometric,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildOptionCard(
+                            icon: Icons.lock_outline,
+                            title: 'Switch to Password',
+                            subtitle: 'Use alphanumeric password instead',
+                            onTap: _navigateToChangePassword,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildOptionCard(
+                            icon: Icons.pin_outlined,
+                            title: 'Switch to PIN',
+                            subtitle: 'Use 6-digit PIN instead',
+                            onTap: _navigateToChangePIN,
                           ),
                         ],
                         const SizedBox(height: 16),
@@ -316,6 +339,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final FocusNode _currentPinFocusNode = FocusNode();
   int _step = 0;
   String? _errorMessage;
   bool _isLoading = false;
@@ -328,16 +352,46 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     _currentCredentialController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _currentPinFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _handleContinue() async {
     if (_step == 0) {
+      // When current auth is biometric, verify with the system biometric prompt.
+      if (widget.currentAuthMethod == 'biometric') {
+        final isAuthenticated = await _authService.authenticateWithBiometrics(
+          reason: 'Authenticate to change your security method',
+        );
+        if (!isAuthenticated) {
+          setState(() {
+            _errorMessage = 'Biometric verification failed or was cancelled';
+          });
+          return;
+        }
+        setState(() {
+          _step = 1;
+          _errorMessage = null;
+        });
+        return;
+      }
+
       if (_currentCredentialController.text.isEmpty) {
         setState(() {
           _errorMessage = widget.currentAuthMethod == 'password'
               ? 'Please enter your current password'
               : 'Please enter your current PIN';
+        });
+        return;
+      }
+      final isCurrentCredentialValid = widget.currentAuthMethod == 'password'
+          ? await _authService.verifyPassword(_currentCredentialController.text)
+          : await _authService.verifyPIN(_currentCredentialController.text);
+      if (!isCurrentCredentialValid) {
+        setState(() {
+          _errorMessage = widget.currentAuthMethod == 'password'
+              ? 'Current password is incorrect'
+              : 'Current PIN is incorrect';
         });
         return;
       }
@@ -381,6 +435,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           _currentCredentialController.text,
           _newPasswordController.text,
         );
+      } else if (widget.currentAuthMethod == 'biometric') {
+        success =
+            await _authService.createPassword(_newPasswordController.text);
+        // Update auth method to password
+        if (success) {
+          await _authService.setAuthMethod('password');
+        }
       } else {
         success = await _authService.switchFromPINToPassword(
           _currentCredentialController.text,
@@ -409,11 +470,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final titles = ['Verify Current', 'New Password', 'Confirm Password'];
+    final titles = widget.currentAuthMethod == 'biometric'
+        ? ['Verify Biometric', 'New Password', 'Confirm Password']
+        : widget.currentAuthMethod == 'pin'
+            ? ['Verify Current PIN', 'New Password', 'Confirm Password']
+        : ['Verify Current Password', 'New Password', 'Confirm Password'];
     final subtitles = [
-      widget.currentAuthMethod == 'password'
-          ? 'Enter your current password'
-          : 'Enter your current PIN',
+      widget.currentAuthMethod == 'biometric'
+          ? 'Use your fingerprint or face to verify'
+          : widget.currentAuthMethod == 'pin'
+              ? 'Enter your current 6-digit PIN to verify'
+          : 'Enter your current password to verify',
       'Create a new secure password',
       'Enter your new password again to confirm',
     ];
@@ -438,16 +505,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       () => setState(() => _obscureConfirm = !_obscureConfirm),
     ];
     final labels = [
-      widget.currentAuthMethod == 'password'
-          ? 'Current Password'
-          : 'Current PIN',
+      'Device PIN',
       'New Password',
       'Confirm Password',
     ];
     final hints = [
-      widget.currentAuthMethod == 'password'
-          ? 'Enter current password'
-          : 'Enter current PIN',
+      'Enter your device PIN',
+      'Enter new password',
+      'Re-enter password',
       'Enter new password',
       'Re-enter new password',
     ];
@@ -509,14 +574,21 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 48),
-                        _buildInputField(
-                          controller: controllers[_step],
-                          obscureText: obscureValues[_step],
-                          label: labels[_step],
-                          hint: hints[_step],
-                          icon: obscureIcons[_step],
-                          onToggle: toggleCallbacks[_step],
-                        ),
+                        if (widget.currentAuthMethod == 'biometric' &&
+                            _step == 0)
+                          _buildBiometricPrompt()
+                        else if (widget.currentAuthMethod == 'pin' &&
+                            _step == 0)
+                          _buildCurrentPINInputField()
+                        else
+                          _buildInputField(
+                            controller: controllers[_step],
+                            obscureText: obscureValues[_step],
+                            label: labels[_step],
+                            hint: hints[_step],
+                            icon: obscureIcons[_step],
+                            onToggle: toggleCallbacks[_step],
+                          ),
                         const SizedBox(height: 16),
                         if (_errorMessage != null) _buildError(),
                         const Spacer(),
@@ -666,6 +738,158 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     );
   }
 
+  Widget _buildBiometricPrompt() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.fingerprint, color: context.accentColor, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Tap Continue to verify with biometrics',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    fontSize: 15,
+                    color: context.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentPINInputField() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).requestFocus(_currentPinFocusNode),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Current PIN',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Enter your 6-digit PIN',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textTertiary,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(6, (index) {
+                    final isFilled = index < _currentCredentialController.text.length;
+                    return Container(
+                      width: 44,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: context.isDarkMode
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isFilled
+                              ? context.accentColor.withValues(alpha: 0.8)
+                              : context.isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.15)
+                                  : Colors.black.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Center(
+                        child: isFilled
+                            ? Text(
+                                '•',
+                                style: TextStyle(
+                                  color: context.textPrimary,
+                                  fontSize: 20,
+                                  fontFamily: 'ProductSans',
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    );
+                  }),
+                ),
+                SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: TextField(
+                    controller: _currentCredentialController,
+                    focusNode: _currentPinFocusNode,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: 6,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                    ),
+                    onChanged: (_) {
+                      if (_errorMessage != null) {
+                        setState(() {
+                          _errorMessage = null;
+                        });
+                      } else {
+                        setState(() {});
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildError() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -752,6 +976,10 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
       TextEditingController();
   final TextEditingController _newPINController = TextEditingController();
   final TextEditingController _confirmPINController = TextEditingController();
+  final FocusNode _currentPinFocusNode = FocusNode();
+  final FocusNode _newPinFocusNode = FocusNode();
+  final FocusNode _confirmPinFocusNode = FocusNode();
+  bool _showPinDigits = true;
   int _step = 0;
   String? _errorMessage;
   bool _isLoading = false;
@@ -761,16 +989,48 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
     _currentCredentialController.dispose();
     _newPINController.dispose();
     _confirmPINController.dispose();
+    _currentPinFocusNode.dispose();
+    _newPinFocusNode.dispose();
+    _confirmPinFocusNode.dispose();
     super.dispose();
   }
 
   Future<void> _handleContinue() async {
     if (_step == 0) {
+      // When current auth is biometric, verify with the system biometric prompt.
+      if (widget.currentAuthMethod == 'biometric') {
+        final isAuthenticated = await _authService.authenticateWithBiometrics(
+          reason: 'Authenticate to change your security method',
+        );
+        if (!isAuthenticated) {
+          setState(() {
+            _errorMessage = 'Biometric verification failed or was cancelled';
+          });
+          return;
+        }
+        setState(() {
+          _step = 1;
+          _errorMessage = null;
+        });
+        return;
+      }
+
       if (_currentCredentialController.text.isEmpty) {
         setState(() {
           _errorMessage = widget.currentAuthMethod == 'pin'
               ? 'Please enter your current PIN'
               : 'Please enter your current password';
+        });
+        return;
+      }
+      final isCurrentCredentialValid = widget.currentAuthMethod == 'pin'
+          ? await _authService.verifyPIN(_currentCredentialController.text)
+          : await _authService.verifyPassword(_currentCredentialController.text);
+      if (!isCurrentCredentialValid) {
+        setState(() {
+          _errorMessage = widget.currentAuthMethod == 'pin'
+              ? 'Current PIN is incorrect'
+              : 'Current password is incorrect';
         });
         return;
       }
@@ -822,6 +1082,12 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
           _currentCredentialController.text,
           _newPINController.text,
         );
+      } else if (widget.currentAuthMethod == 'biometric') {
+        success = await _authService.createPIN(_newPINController.text);
+        // Update auth method to PIN
+        if (success) {
+          await _authService.setAuthMethod('pin');
+        }
       } else {
         success = await _authService.switchFromPasswordToPIN(
           _currentCredentialController.text,
@@ -850,11 +1116,17 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final titles = ['Verify Current', 'New PIN', 'Confirm PIN'];
+    final titles = widget.currentAuthMethod == 'biometric'
+        ? ['Verify Biometric', 'New PIN', 'Confirm PIN']
+        : widget.currentAuthMethod == 'password'
+            ? ['Verify Current Password', 'New PIN', 'Confirm PIN']
+            : ['Verify Current PIN', 'New PIN', 'Confirm PIN'];
     final subtitles = [
-      widget.currentAuthMethod == 'pin'
-          ? 'Enter your current PIN'
-          : 'Enter your current password',
+      widget.currentAuthMethod == 'biometric'
+          ? 'Use your fingerprint or face to verify'
+          : widget.currentAuthMethod == 'password'
+              ? 'Type your current password to verify'
+              : 'Enter your current PIN to verify',
       'Enter a new 6-digit PIN',
       'Enter your new PIN again to confirm',
     ];
@@ -864,14 +1136,14 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
       _confirmPINController,
     ];
     final labels = [
-      widget.currentAuthMethod == 'pin' ? 'Current PIN' : 'Current Password',
+      widget.currentAuthMethod == 'password' ? 'Current Password' : 'Current PIN',
       'New PIN',
       'Confirm PIN',
     ];
     final hints = [
-      widget.currentAuthMethod == 'pin'
-          ? 'Enter current PIN'
-          : 'Enter current password',
+      widget.currentAuthMethod == 'password'
+          ? 'Type your current password'
+          : 'Enter current 6-digit PIN',
       'Enter 6-digit PIN',
       'Re-enter PIN',
     ];
@@ -933,12 +1205,27 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 48),
-                        _buildInputField(
-                          controller: controllers[_step],
-                          label: labels[_step],
-                          hint: hints[_step],
-                          isNumeric: _step >= 1,
-                        ),
+                        if (widget.currentAuthMethod == 'biometric' &&
+                            _step == 0)
+                          _buildBiometricPrompt()
+                        else if (_step >= 1 ||
+                            (widget.currentAuthMethod == 'pin' && _step == 0))
+                          _buildPINInputField(
+                            controller: controllers[_step],
+                            label: labels[_step],
+                            hint: hints[_step],
+                            focusNode: _step == 0
+                                ? _currentPinFocusNode
+                                : _step == 1
+                                    ? _newPinFocusNode
+                                    : _confirmPinFocusNode,
+                          )
+                        else
+                          _buildInputField(
+                            controller: controllers[_step],
+                            label: labels[_step],
+                            hint: hints[_step],
+                          ),
                         const SizedBox(height: 16),
                         if (_errorMessage != null) _buildError(),
                         const Spacer(),
@@ -1013,7 +1300,6 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
     required TextEditingController controller,
     required String label,
     required String hint,
-    required bool isNumeric,
   }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -1036,8 +1322,7 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
           child: TextField(
             controller: controller,
             obscureText: true,
-            keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
-            maxLength: isNumeric ? 6 : null,
+            keyboardType: TextInputType.text,
             style: TextStyle(
               fontFamily: 'ProductSans',
               fontSize: 16,
@@ -1046,7 +1331,6 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
             decoration: InputDecoration(
               labelText: label,
               hintText: hint,
-              counterText: '',
               labelStyle: TextStyle(
                 fontFamily: 'ProductSans',
                 color: context.textSecondary,
@@ -1079,6 +1363,207 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
                 });
               }
             },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPINInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required FocusNode focusNode,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).requestFocus(focusNode),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  hint,
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textTertiary,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(6, (index) {
+                    final isFilled = index < controller.text.length;
+                    return Container(
+                      width: 44,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: context.isDarkMode
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isFilled
+                              ? context.accentColor.withValues(alpha: 0.8)
+                              : context.isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.15)
+                                  : Colors.black.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Center(
+                        child: isFilled
+                            ? Text(
+                                _showPinDigits ? controller.text[index] : '•',
+                                style: TextStyle(
+                                  color: context.textPrimary,
+                                  fontSize: 20,
+                                  fontFamily: 'ProductSans',
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _showPinDigits = !_showPinDigits;
+                      });
+                    },
+                    icon: Icon(
+                      _showPinDigits
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 18,
+                      color: context.textSecondary,
+                    ),
+                    label: Text(
+                      _showPinDigits ? 'Hide PIN' : 'Show PIN',
+                      style: TextStyle(
+                        fontFamily: 'ProductSans',
+                        color: context.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    keyboardType: TextInputType.number,
+                    obscureText: false,
+                    maxLength: 6,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
+                    decoration: const InputDecoration(
+                      counterText: '',
+                      border: InputBorder.none,
+                    ),
+                    onChanged: (_) {
+                      final value = controller.text;
+                      if (_errorMessage != null) {
+                        setState(() {
+                          _errorMessage = null;
+                        });
+                      } else {
+                        setState(() {});
+                      }
+
+                      // Auto-advance from "New PIN" to "Confirm PIN"
+                      // once 6 valid digits are entered.
+                      if (_step == 1 &&
+                          identical(controller, _newPINController) &&
+                          value.length == 6 &&
+                          RegExp(r'^[0-9]{6}$').hasMatch(value)) {
+                        setState(() {
+                          _step = 2;
+                          _errorMessage = null;
+                        });
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            FocusScope.of(context)
+                                .requestFocus(_confirmPinFocusNode);
+                          }
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBiometricPrompt() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.fingerprint, color: context.accentColor, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Tap Continue to verify with biometrics',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    fontSize: 15,
+                    color: context.textSecondary,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

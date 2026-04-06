@@ -222,6 +222,10 @@ class _UnlockScreenState extends State<UnlockScreen> {
               child: SvgPicture.asset(
                 'assets/locker_logo_nobg.svg',
                 fit: BoxFit.contain,
+                colorFilter: ColorFilter.mode(
+                  context.isDarkMode ? const Color(0xFFF5F5F5) : Colors.black,
+                  BlendMode.srcIn,
+                ),
               ),
             ),
           ),
@@ -356,7 +360,8 @@ class _UnlockScreenState extends State<UnlockScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: context.accentColor, width: 2),
+                    borderSide:
+                        BorderSide(color: context.accentColor, width: 2),
                   ),
                 ),
                 onChanged: (_) {
@@ -404,7 +409,8 @@ class _UnlockScreenState extends State<UnlockScreen> {
               child: Icon(
                 Icons.fingerprint,
                 size: 64,
-                color: context.accentColor,
+                color:
+                    context.isDarkMode ? const Color(0xFFF5F5F5) : Colors.black,
               ),
             ),
           ),
@@ -471,7 +477,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
