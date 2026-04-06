@@ -339,6 +339,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final FocusNode _currentPinFocusNode = FocusNode();
   int _step = 0;
   String? _errorMessage;
   bool _isLoading = false;
@@ -351,6 +352,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     _currentCredentialController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _currentPinFocusNode.dispose();
     super.dispose();
   }
 
@@ -379,6 +381,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           _errorMessage = widget.currentAuthMethod == 'password'
               ? 'Please enter your current password'
               : 'Please enter your current PIN';
+        });
+        return;
+      }
+      final isCurrentCredentialValid = widget.currentAuthMethod == 'password'
+          ? await _authService.verifyPassword(_currentCredentialController.text)
+          : await _authService.verifyPIN(_currentCredentialController.text);
+      if (!isCurrentCredentialValid) {
+        setState(() {
+          _errorMessage = widget.currentAuthMethod == 'password'
+              ? 'Current password is incorrect'
+              : 'Current PIN is incorrect';
         });
         return;
       }
@@ -459,10 +472,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Widget build(BuildContext context) {
     final titles = widget.currentAuthMethod == 'biometric'
         ? ['Verify Biometric', 'New Password', 'Confirm Password']
+        : widget.currentAuthMethod == 'pin'
+            ? ['Verify Current PIN', 'New Password', 'Confirm Password']
         : ['Verify Current Password', 'New Password', 'Confirm Password'];
     final subtitles = [
       widget.currentAuthMethod == 'biometric'
           ? 'Use your fingerprint or face to verify'
+          : widget.currentAuthMethod == 'pin'
+              ? 'Enter your current 6-digit PIN to verify'
           : 'Enter your current password to verify',
       'Create a new secure password',
       'Enter your new password again to confirm',
@@ -560,6 +577,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         if (widget.currentAuthMethod == 'biometric' &&
                             _step == 0)
                           _buildBiometricPrompt()
+                        else if (widget.currentAuthMethod == 'pin' &&
+                            _step == 0)
+                          _buildCurrentPINInputField()
                         else
                           _buildInputField(
                             controller: controllers[_step],
@@ -758,6 +778,118 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     );
   }
 
+  Widget _buildCurrentPINInputField() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).requestFocus(_currentPinFocusNode),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Current PIN',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Enter your 6-digit PIN',
+                  style: TextStyle(
+                    fontFamily: 'ProductSans',
+                    color: context.textTertiary,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(6, (index) {
+                    final isFilled = index < _currentCredentialController.text.length;
+                    return Container(
+                      width: 44,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: context.isDarkMode
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isFilled
+                              ? context.accentColor.withValues(alpha: 0.8)
+                              : context.isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.15)
+                                  : Colors.black.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Center(
+                        child: isFilled
+                            ? Text(
+                                '•',
+                                style: TextStyle(
+                                  color: context.textPrimary,
+                                  fontSize: 20,
+                                  fontFamily: 'ProductSans',
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    );
+                  }),
+                ),
+                SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: TextField(
+                    controller: _currentCredentialController,
+                    focusNode: _currentPinFocusNode,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    maxLength: 6,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                    ),
+                    onChanged: (_) {
+                      if (_errorMessage != null) {
+                        setState(() {
+                          _errorMessage = null;
+                        });
+                      } else {
+                        setState(() {});
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildError() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -844,7 +976,10 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
       TextEditingController();
   final TextEditingController _newPINController = TextEditingController();
   final TextEditingController _confirmPINController = TextEditingController();
-  final FocusNode _pinFocusNode = FocusNode();
+  final FocusNode _currentPinFocusNode = FocusNode();
+  final FocusNode _newPinFocusNode = FocusNode();
+  final FocusNode _confirmPinFocusNode = FocusNode();
+  bool _showPinDigits = true;
   int _step = 0;
   String? _errorMessage;
   bool _isLoading = false;
@@ -854,7 +989,9 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
     _currentCredentialController.dispose();
     _newPINController.dispose();
     _confirmPINController.dispose();
-    _pinFocusNode.dispose();
+    _currentPinFocusNode.dispose();
+    _newPinFocusNode.dispose();
+    _confirmPinFocusNode.dispose();
     super.dispose();
   }
 
@@ -883,6 +1020,17 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
           _errorMessage = widget.currentAuthMethod == 'pin'
               ? 'Please enter your current PIN'
               : 'Please enter your current password';
+        });
+        return;
+      }
+      final isCurrentCredentialValid = widget.currentAuthMethod == 'pin'
+          ? await _authService.verifyPIN(_currentCredentialController.text)
+          : await _authService.verifyPassword(_currentCredentialController.text);
+      if (!isCurrentCredentialValid) {
+        setState(() {
+          _errorMessage = widget.currentAuthMethod == 'pin'
+              ? 'Current PIN is incorrect'
+              : 'Current password is incorrect';
         });
         return;
       }
@@ -970,11 +1118,15 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
   Widget build(BuildContext context) {
     final titles = widget.currentAuthMethod == 'biometric'
         ? ['Verify Biometric', 'New PIN', 'Confirm PIN']
-        : ['Verify Current PIN', 'New PIN', 'Confirm PIN'];
+        : widget.currentAuthMethod == 'password'
+            ? ['Verify Current Password', 'New PIN', 'Confirm PIN']
+            : ['Verify Current PIN', 'New PIN', 'Confirm PIN'];
     final subtitles = [
       widget.currentAuthMethod == 'biometric'
           ? 'Use your fingerprint or face to verify'
-          : 'Enter your current PIN to verify',
+          : widget.currentAuthMethod == 'password'
+              ? 'Type your current password to verify'
+              : 'Enter your current PIN to verify',
       'Enter a new 6-digit PIN',
       'Enter your new PIN again to confirm',
     ];
@@ -984,12 +1136,14 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
       _confirmPINController,
     ];
     final labels = [
-      'Device Password',
+      widget.currentAuthMethod == 'password' ? 'Current Password' : 'Current PIN',
       'New PIN',
       'Confirm PIN',
     ];
     final hints = [
-      'Enter your device password',
+      widget.currentAuthMethod == 'password'
+          ? 'Type your current password'
+          : 'Enter current 6-digit PIN',
       'Enter 6-digit PIN',
       'Re-enter PIN',
     ];
@@ -1060,6 +1214,11 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
                             controller: controllers[_step],
                             label: labels[_step],
                             hint: hints[_step],
+                            focusNode: _step == 0
+                                ? _currentPinFocusNode
+                                : _step == 1
+                                    ? _newPinFocusNode
+                                    : _confirmPinFocusNode,
                           )
                         else
                           _buildInputField(
@@ -1214,6 +1373,7 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
     required TextEditingController controller,
     required String label,
     required String hint,
+    required FocusNode focusNode,
   }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -1234,7 +1394,7 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
             ),
           ),
           child: GestureDetector(
-            onTap: () => FocusScope.of(context).requestFocus(_pinFocusNode),
+            onTap: () => FocusScope.of(context).requestFocus(focusNode),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1278,7 +1438,7 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
                       child: Center(
                         child: isFilled
                             ? Text(
-                                '•',
+                                _showPinDigits ? controller.text[index] : '•',
                                 style: TextStyle(
                                   color: context.textPrimary,
                                   fontSize: 20,
@@ -1290,14 +1450,39 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
                     );
                   }),
                 ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _showPinDigits = !_showPinDigits;
+                      });
+                    },
+                    icon: Icon(
+                      _showPinDigits
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 18,
+                      color: context.textSecondary,
+                    ),
+                    label: Text(
+                      _showPinDigits ? 'Hide PIN' : 'Show PIN',
+                      style: TextStyle(
+                        fontFamily: 'ProductSans',
+                        color: context.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
                 SizedBox(
                   width: 0,
                   height: 0,
                   child: TextField(
                     controller: controller,
-                    focusNode: _pinFocusNode,
+                    focusNode: focusNode,
                     keyboardType: TextInputType.number,
-                    obscureText: true,
+                    obscureText: false,
                     maxLength: 6,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
@@ -1326,6 +1511,12 @@ class _ChangePINScreenState extends State<ChangePINScreen> {
                         setState(() {
                           _step = 2;
                           _errorMessage = null;
+                        });
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            FocusScope.of(context)
+                                .requestFocus(_confirmPinFocusNode);
+                          }
                         });
                       }
                     },
