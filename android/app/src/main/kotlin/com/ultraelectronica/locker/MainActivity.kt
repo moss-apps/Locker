@@ -1,5 +1,8 @@
 package com.ultraelectronica.locker
 
+import android.content.Intent
+import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.view.Display
 import android.view.WindowManager
@@ -7,9 +10,11 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity: FlutterFragmentActivity() {
     private val CHANNEL = "com.ultraelectronica.locker/autokill"
+    private val MEDIA_SCANNER_CHANNEL = "com.example.vault/media_scanner"
     private var isAutoKillEnabled = true
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -25,6 +30,46 @@ class MainActivity: FlutterFragmentActivity() {
             } else {
                 result.notImplemented()
             }
+        }
+        
+        // Media scanner channel for scanning files without creating duplicates
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, MEDIA_SCANNER_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "scanFile" -> {
+                    val path = call.argument<String>("path")
+                    if (path != null) {
+                        scanMediaFile(path, result)
+                    } else {
+                        result.error("INVALID_ARGUMENT", "File path is required", null)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+    
+    private fun scanMediaFile(filePath: String, result: MethodChannel.Result) {
+        try {
+            val file = File(filePath)
+            if (!file.exists()) {
+                result.error("FILE_NOT_FOUND", "File does not exist: $filePath", null)
+                return
+            }
+            
+            // Use MediaScannerConnection to scan the file
+            MediaScannerConnection.scanFile(
+                applicationContext,
+                arrayOf(filePath),
+                null
+            ) { path, uri ->
+                if (uri != null) {
+                    result.success(true)
+                } else {
+                    result.success(false)
+                }
+            }
+        } catch (e: Exception) {
+            result.error("SCAN_ERROR", "Failed to scan file: ${e.message}", null)
         }
     }
     

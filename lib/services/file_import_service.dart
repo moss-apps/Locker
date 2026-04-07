@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../models/vaulted_file.dart';
 import 'auto_kill_service.dart';
+import 'media_scanner_service.dart';
 import 'office_converter_service.dart';
 import 'permission_service.dart';
 import 'vault_service.dart';
@@ -19,6 +20,7 @@ class FileImportService {
   final ImagePicker _imagePicker = ImagePicker();
   final PermissionService _permissionService = PermissionService.instance;
   final VaultService _vaultService = VaultService.instance;
+  final MediaScannerService _mediaScannerService = MediaScannerService.instance;
 
   /// Import images from gallery using photo_manager for proper deletion support
   Future<ImportResult> importImagesFromGallery({
@@ -231,9 +233,38 @@ class FileImportService {
 
       debugPrint('[FileImport] Adding ${filesToVault.length} files to vault');
 
+      // Check for potential duplicates before importing
+      final existingFiles = await _vaultService.getAllFiles(isDecoy: false);
+      final existingNames = existingFiles.map((f) => f.originalName.toLowerCase()).toSet();
+      
+      // Filter out files that might already be in vault
+      final filesToImport = <FileToVault>[];
+      final skippedDuplicates = <String>[];
+      
+      for (final file in filesToVault) {
+        if (existingNames.contains(file.originalName.toLowerCase())) {
+          debugPrint('[FileImport] Potential duplicate detected: ${file.originalName}');
+          skippedDuplicates.add(file.originalName);
+        } else {
+          filesToImport.add(file);
+        }
+      }
+      
+      if (skippedDuplicates.isNotEmpty) {
+        debugPrint('[FileImport] Skipping ${skippedDuplicates.length} potential duplicates');
+      }
+      
+      if (filesToImport.isEmpty) {
+        return ImportResult(
+          success: false,
+          error: 'All selected files already exist in vault',
+          importedFiles: [],
+        );
+      }
+
       // Add to vault (copy files to vault directory)
       final imported = await _vaultService.addFiles(
-        files: filesToVault,
+        files: filesToImport,
         deleteOriginals: false, // We handle deletion via PhotoManager
         onProgress: (current, total) {
           // Map the vault service progress - estimate size progress proportionally
@@ -251,14 +282,28 @@ class FileImportService {
       if (deleteOriginals && imported.isNotEmpty && validAssets.isNotEmpty) {
         debugPrint(
             '[FileImport] Attempting to delete ${validAssets.length} assets from gallery');
-        deletedFromGallery = await _deleteAssetsFromGallery(validAssets);
+        
+        // Only delete the assets that were successfully imported
+        final importedNames = imported.map((f) => f.originalName.toLowerCase()).toSet();
+        final assetsToDelete = validAssets.where((asset) {
+          final title = asset.title?.toLowerCase() ?? '';
+          return importedNames.contains(title);
+        }).toList();
+        
+        if (assetsToDelete.isNotEmpty) {
+          deletedFromGallery = await _deleteAssetsFromGallery(assetsToDelete);
 
-        if (deletedFromGallery) {
-          debugPrint(
-              '[FileImport] Successfully deleted ${validAssets.length} assets from gallery');
-        } else {
-          debugPrint(
-              '[FileImport] Failed to delete assets from gallery. Files are imported but originals remain.');
+          if (deletedFromGallery) {
+            debugPrint(
+                '[FileImport] Successfully deleted ${assetsToDelete.length} assets from gallery');
+          } else {
+            debugPrint(
+                '[FileImport] Failed to delete assets from gallery. Files are imported but originals remain.');
+            debugPrint(
+                '[FileImport] This creates duplicates - one in vault, one in gallery.');
+            debugPrint(
+                '[FileImport] User may need to manually delete from gallery or grant "All Files Access" permission.');
+          }
         }
       }
 
@@ -347,14 +392,18 @@ class FileImportService {
           if (exportedFile != null && await exportedFile.exists()) {
             debugPrint('[FileImport] Exported file to: $destinationPath');
 
-            // Notify MediaStore to scan the new file so it appears in gallery
+            // Notify MediaStore to scan the file (without creating duplicates)
             await _notifyMediaStore(destinationPath);
 
             restoredPaths.add(destinationPath);
             successCount++;
 
             // Remove from vault if requested
+            // IMPORTANT: Only remove after successful export AND media scan
             if (removeFromVault) {
+              // Small delay to ensure media scan completes
+              await Future.delayed(const Duration(milliseconds: 500));
+              
               await _vaultService.removeFile(fileId);
               debugPrint('[FileImport] Removed file from vault: $fileId');
             }
@@ -394,32 +443,18 @@ class FileImportService {
   }
 
   /// Notify MediaStore to scan a file so it appears in the gallery
+  /// This method scans the existing file instead of creating a duplicate
   Future<void> _notifyMediaStore(String filePath) async {
     try {
-      // Use PhotoManager to notify the system about the new file
-      // This makes the file appear in the device's gallery
-      final file = File(filePath);
-      if (await file.exists()) {
-        // The saveImage/saveVideo methods register the file with MediaStore
-        final bytes = await file.readAsBytes();
-        final mimeType = lookupMimeType(filePath) ?? '';
-
-        if (mimeType.startsWith('image/')) {
-          await PhotoManager.editor.saveImage(
-            bytes,
-            filename: filePath.split('/').last,
-          );
-          debugPrint(
-              '[FileImport] Registered image with MediaStore: $filePath');
-        } else if (mimeType.startsWith('video/')) {
-          await PhotoManager.editor.saveVideo(
-            file,
-            title: filePath.split('/').last,
-          );
-          debugPrint(
-              '[FileImport] Registered video with MediaStore: $filePath');
-        }
-        // For other file types, they should still be accessible via file manager
+      debugPrint('[FileImport] Notifying MediaStore about file: $filePath');
+      
+      // Use the media scanner service to scan the file without creating duplicates
+      final success = await _mediaScannerService.scanFile(filePath);
+      
+      if (success) {
+        debugPrint('[FileImport] Successfully scanned file: $filePath');
+      } else {
+        debugPrint('[FileImport] Media scan may have failed, but file is still in DCIM');
       }
     } catch (e) {
       debugPrint('[FileImport] Error notifying MediaStore: $e');
