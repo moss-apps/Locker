@@ -25,6 +25,7 @@ class PinInputWidget extends StatefulWidget {
   final VoidCallback? onPinChanged;
   final String? errorMessage;
   final PinInputController? controller;
+  final bool enabled;
 
   const PinInputWidget({
     super.key,
@@ -32,6 +33,7 @@ class PinInputWidget extends StatefulWidget {
     this.onPinChanged,
     this.errorMessage,
     this.controller,
+    this.enabled = true,
   });
 
   @override
@@ -67,7 +69,8 @@ class _PinInputWidgetState extends State<PinInputWidget> {
   }
 
   void _handlePinChanged(String value) {
-    final nextPin = value.length > _pinLength ? value.substring(0, _pinLength) : value;
+    final nextPin =
+        value.length > _pinLength ? value.substring(0, _pinLength) : value;
     if (nextPin == _pin) return;
 
     setState(() {
@@ -109,7 +112,9 @@ class _PinInputWidgetState extends State<PinInputWidget> {
             ),
           ),
           child: GestureDetector(
-            onTap: () => FocusScope.of(context).requestFocus(_focusNode),
+            onTap: widget.enabled
+                ? () => FocusScope.of(context).requestFocus(_focusNode)
+                : null,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -171,6 +176,7 @@ class _PinInputWidgetState extends State<PinInputWidget> {
                   child: TextField(
                     controller: _textController,
                     focusNode: _focusNode,
+                    enabled: widget.enabled,
                     keyboardType: TextInputType.number,
                     obscureText: true,
                     maxLength: _pinLength,
