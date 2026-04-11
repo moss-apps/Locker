@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../themes/app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/decoy_service.dart';
 import '../widgets/pin_input_widget.dart';
 import 'gallery_vault_screen.dart';
 
@@ -16,52 +18,153 @@ class UnlockScreen extends StatefulWidget {
 
 class _UnlockScreenState extends State<UnlockScreen> {
   final AuthService _authService = AuthService();
+  final DecoyService _decoyService = DecoyService.instance;
   String? _authMethod;
   String? _errorMessage;
   bool _isLoading = true;
+  bool _isAuthenticating = false;
   bool _obscurePassword = true;
   final TextEditingController _passwordController = TextEditingController();
   final PinInputController _pinController = PinInputController();
+  UnlockSecurityState _unlockSecurityState = const UnlockSecurityState();
+  Timer? _lockoutTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadAuthMethod();
+    _initializeUnlockState();
   }
 
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadAuthMethod() async {
+  Future<void> _initializeUnlockState() async {
     final method = await _authService.getAuthMethod();
+    final unlockState = await _authService.getUnlockSecurityState();
+
+    if (!mounted) return;
+
     setState(() {
       _authMethod = method;
+      _unlockSecurityState = unlockState;
       _isLoading = false;
     });
 
+    _syncLockoutTimer();
+
     // Auto-trigger biometric if that's the method
-    if (method == 'biometric') {
-      _handleBiometricAuth();
+    if (method == 'biometric' && !unlockState.isLockedOut) {
+      _handleBiometricAuth(showError: false);
     }
   }
 
+  void _syncLockoutTimer() {
+    _lockoutTimer?.cancel();
+    if (!_unlockSecurityState.isLockedOut) return;
+
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      final unlockState = await _authService.getUnlockSecurityState();
+      if (!mounted) return;
+
+      setState(() {
+        _unlockSecurityState = unlockState;
+      });
+
+      if (!unlockState.isLockedOut) {
+        _lockoutTimer?.cancel();
+      }
+    });
+  }
+
+  Future<void> _openVault({required bool isDecoy}) async {
+    if (isDecoy) {
+      await _decoyService.activateDecoyMode();
+    } else {
+      await _decoyService.deactivateDecoyMode();
+    }
+    await _authService.resetUnlockAttempts();
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => const GalleryVaultScreen(),
+      ),
+    );
+  }
+
+  Future<void> _handleFailedUnlock(String defaultMessage) async {
+    final result = await _authService.registerFailedUnlockAttempt();
+    final wipeMessage =
+        result.vaultWiped ? ' Vault contents were permanently erased.' : '';
+    final message = result.state.isLockedOut
+        ? 'Too many failed attempts. Unlock is temporarily unavailable.$wipeMessage'
+        : '$defaultMessage$wipeMessage';
+
+    if (!mounted) return;
+
+    setState(() {
+      _unlockSecurityState = result.state;
+      _errorMessage = message;
+      _isLoading = false;
+    });
+
+    _syncLockoutTimer();
+  }
+
+  Future<bool> _tryOpenDecoyVault(String credential) async {
+    final result = await _decoyService.checkIfDecoyCredential(credential);
+    if (!result.isDecoy) return false;
+
+    await _openVault(isDecoy: true);
+    return true;
+  }
+
+  String _formatDuration(Duration duration) {
+    final safeDuration = duration.isNegative ? Duration.zero : duration;
+    final hours = safeDuration.inHours;
+    final minutes = safeDuration.inMinutes.remainder(60);
+    final seconds = safeDuration.inSeconds.remainder(60);
+
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
   Future<void> _handlePinComplete(String pin) async {
+    if (_unlockSecurityState.isLockedOut || _isAuthenticating) {
+      _pinController.clear();
+      return;
+    }
+
+    setState(() {
+      _isAuthenticating = true;
+      _errorMessage = null;
+    });
+
+    if (await _tryOpenDecoyVault(pin)) {
+      return;
+    }
+
     final isValid = await _authService.verifyPIN(pin);
 
     if (isValid && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const GalleryVaultScreen(),
-        ),
-      );
+      await _openVault(isDecoy: false);
     } else if (mounted) {
-      setState(() {
-        _errorMessage = 'Incorrect PIN. Please try again.';
-      });
+      await _handleFailedUnlock('Incorrect PIN.');
       _pinController.clear();
+    }
+
+    if (mounted) {
+      setState(() {
+        _isAuthenticating = false;
+      });
     }
   }
 
@@ -73,6 +176,8 @@ class _UnlockScreenState extends State<UnlockScreen> {
   }
 
   Future<void> _handlePasswordAuth() async {
+    if (_unlockSecurityState.isLockedOut || _isAuthenticating) return;
+
     final password = _passwordController.text;
 
     if (password.isEmpty) {
@@ -83,39 +188,70 @@ class _UnlockScreenState extends State<UnlockScreen> {
     // Batch state update for loading state
     setState(() {
       _isLoading = true;
+      _isAuthenticating = true;
       _errorMessage = null;
     });
+
+    if (await _tryOpenDecoyVault(password)) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isAuthenticating = false;
+        });
+      }
+      return;
+    }
 
     final isValid = await _authService.verifyPassword(password);
 
     if (isValid && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const GalleryVaultScreen(),
-        ),
-      );
+      await _openVault(isDecoy: false);
     } else if (mounted) {
-      // Batch state update for error state
+      await _handleFailedUnlock('Incorrect password.');
+      _passwordController.clear();
+    }
+
+    if (mounted) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Incorrect password. Please try again.';
+        _isAuthenticating = false;
       });
-      _passwordController.clear();
     }
   }
 
-  Future<void> _handleBiometricAuth() async {
-    final isAuthenticated = await _authService.authenticateWithBiometrics();
+  Future<void> _handleBiometricAuth({
+    bool countFailure = true,
+    bool showError = true,
+  }) async {
+    if (_unlockSecurityState.isLockedOut || _isAuthenticating) return;
 
-    if (isAuthenticated && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const GalleryVaultScreen(),
-        ),
-      );
+    setState(() {
+      _isAuthenticating = true;
+      if (showError) {
+        _errorMessage = null;
+      }
+    });
+
+    final result = await _authService.performBiometricAuthentication();
+
+    if (result.isSuccess && mounted) {
+      await _openVault(isDecoy: false);
     } else if (mounted) {
+      if (countFailure && result.shouldCountAsFailedUnlock) {
+        await _handleFailedUnlock('Biometric authentication failed.');
+      } else if (showError) {
+        setState(() {
+          _errorMessage =
+              result.status == BiometricAuthenticationStatus.canceled
+                  ? 'Biometric authentication was cancelled.'
+                  : 'Biometric authentication is currently unavailable.';
+        });
+      }
+    }
+
+    if (mounted) {
       setState(() {
-        _errorMessage = 'Biometric authentication failed. Please try again.';
+        _isAuthenticating = false;
       });
     }
   }
@@ -155,6 +291,11 @@ class _UnlockScreenState extends State<UnlockScreen> {
                   _buildAppName(),
                   const SizedBox(height: 12),
                   _buildInstruction(),
+                  if (_unlockSecurityState.protectionEnabled ||
+                      _unlockSecurityState.isLockedOut) ...[
+                    const SizedBox(height: 16),
+                    _buildProtectionStatus(),
+                  ],
                   const SizedBox(height: 64),
                   _buildAuthWidget(),
                   const Spacer(),
@@ -283,6 +424,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
           onPinChanged: _handlePinChanged,
           errorMessage: _errorMessage,
           controller: _pinController,
+          enabled: !_unlockSecurityState.isLockedOut,
         ),
         if (_errorMessage != null) ...[
           const SizedBox(height: 16),
@@ -316,6 +458,9 @@ class _UnlockScreenState extends State<UnlockScreen> {
             children: [
               TextField(
                 controller: _passwordController,
+                enabled: !_unlockSecurityState.isLockedOut &&
+                    !_isLoading &&
+                    !_isAuthenticating,
                 obscureText: _obscurePassword,
                 style: TextStyle(
                   fontFamily: 'ProductSans',
@@ -454,26 +599,71 @@ class _UnlockScreenState extends State<UnlockScreen> {
     );
   }
 
+  Widget _buildProtectionStatus() {
+    final message = _unlockSecurityState.isLockedOut
+        ? 'Unlock available again in ${_formatDuration(_unlockSecurityState.remainingLockout)}.'
+        : 'Failed-attempt protection is enabled.';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.white.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _unlockSecurityState.isLockedOut
+                  ? AppColors.error.withValues(alpha: 0.25)
+                  : context.borderColor,
+            ),
+          ),
+          child: Text(
+            message,
+            style: TextStyle(
+              color: _unlockSecurityState.isLockedOut
+                  ? AppColors.error
+                  : context.textSecondary,
+              fontSize: 13,
+              fontFamily: 'ProductSans',
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildUnlockButton({bool isBiometric = false}) {
+    final isEnabled =
+        !_unlockSecurityState.isLockedOut && !_isLoading && !_isAuthenticating;
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
           colors: [
-            context.accentColor,
-            context.accentColor.withValues(alpha: 0.8),
+            context.accentColor.withValues(alpha: isEnabled ? 1 : 0.45),
+            context.accentColor.withValues(alpha: isEnabled ? 0.8 : 0.35),
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: context.accentColor.withValues(alpha: 0.4),
+            color:
+                context.accentColor.withValues(alpha: isEnabled ? 0.4 : 0.12),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ElevatedButton(
-        onPressed: isBiometric ? _handleBiometricAuth : _handlePasswordAuth,
+        onPressed: isEnabled
+            ? (isBiometric ? _handleBiometricAuth : _handlePasswordAuth)
+            : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,

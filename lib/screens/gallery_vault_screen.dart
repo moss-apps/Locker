@@ -9,8 +9,10 @@ import 'package:path_provider/path_provider.dart';
 import '../models/vaulted_file.dart';
 import '../models/album.dart';
 import '../providers/vault_providers.dart';
+import '../services/auth_service.dart';
 import '../services/auto_kill_service.dart';
 import '../services/file_import_service.dart';
+import '../services/vault_service.dart';
 import '../themes/app_colors.dart';
 import '../utils/toast_utils.dart';
 import '../utils/responsive_utils.dart';
@@ -41,6 +43,10 @@ class GalleryVaultScreen extends ConsumerStatefulWidget {
 
 class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     with SingleTickerProviderStateMixin {
+  static const List<int> _lockoutAttemptOptions = [3, 5, 7, 10];
+  static const List<int> _lockoutDurationOptions = [30, 60, 300, 900];
+  static const List<int> _wipeAttemptOptions = [10, 15, 20, 30];
+
   late TabController _tabController;
   final FileImportService _importService = FileImportService.instance;
 
@@ -66,6 +72,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
   Future<void> _initializeVault() async {
     await ref.read(vaultServiceProvider).initialize();
+    ref.read(isDecoyModeProvider.notifier).state =
+        ref.read(decoyServiceProvider).isDecoyModeActive;
     ref.read(vaultNotifierProvider.notifier).loadFiles();
   }
 
@@ -1818,7 +1826,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                             ),
                           ),
                           onTap: () {
-                            ref.read(sortOptionProvider.notifier).state = option;
+                            ref.read(sortOptionProvider.notifier).state =
+                                option;
                             Navigator.pop(context);
                           },
                           contentPadding: EdgeInsets.zero,
@@ -1883,7 +1892,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                           data: (albums) => Column(
                             children: albums
                                 .where((a) =>
-                                    !a.isDefault || a.type == AlbumType.favorites)
+                                    !a.isDefault ||
+                                    a.type == AlbumType.favorites)
                                 .map((album) => ListTile(
                                       leading: Icon(
                                         Icons.folder_outlined,
@@ -1906,7 +1916,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                       onTap: () async {
                                         Navigator.pop(context);
                                         final success = await ref
-                                            .read(vaultNotifierProvider.notifier)
+                                            .read(
+                                                vaultNotifierProvider.notifier)
                                             .addToAlbum(
                                               selectedFiles.toList(),
                                               album.id,
@@ -2506,11 +2517,11 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                         color: context.textTertiary)),
                                 value: settings.encryptionEnabled,
                                 onChanged: (value) async {
-                                  await ref
-                                      .read(vaultServiceProvider)
-                                      .updateSettings(settings.copyWith(
-                                          encryptionEnabled: value));
-                                  ref.invalidate(vaultSettingsProvider);
+                                  await _saveVaultSettings(
+                                    settings.copyWith(
+                                      encryptionEnabled: value,
+                                    ),
+                                  );
                                 },
                                 activeThumbColor: context.accentColor,
                                 contentPadding: EdgeInsets.zero,
@@ -2527,11 +2538,11 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                         color: context.textTertiary)),
                                 value: settings.secureDelete,
                                 onChanged: (value) async {
-                                  await ref
-                                      .read(vaultServiceProvider)
-                                      .updateSettings(settings.copyWith(
-                                          secureDelete: value));
-                                  ref.invalidate(vaultSettingsProvider);
+                                  await _saveVaultSettings(
+                                    settings.copyWith(
+                                      secureDelete: value,
+                                    ),
+                                  );
                                 },
                                 activeThumbColor: context.accentColor,
                                 contentPadding: EdgeInsets.zero,
@@ -2548,15 +2559,139 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                                         color: context.textTertiary)),
                                 value: settings.compressionEnabled,
                                 onChanged: (value) async {
-                                  await ref
-                                      .read(vaultServiceProvider)
-                                      .updateSettings(settings.copyWith(
-                                          compressionEnabled: value));
-                                  ref.invalidate(vaultSettingsProvider);
+                                  await _saveVaultSettings(
+                                    settings.copyWith(
+                                      compressionEnabled: value,
+                                    ),
+                                  );
                                 },
                                 activeThumbColor: context.accentColor,
                                 contentPadding: EdgeInsets.zero,
                               ),
+                              const SizedBox(height: 8),
+                              Divider(color: context.borderColor),
+                              const SizedBox(height: 8),
+                              SwitchListTile(
+                                title: const Text(
+                                  'Failed Unlock Protection',
+                                  style: TextStyle(fontFamily: 'ProductSans'),
+                                ),
+                                subtitle: Text(
+                                  'Adds a cooldown after repeated wrong PIN, password, or biometric attempts',
+                                  style: TextStyle(
+                                    fontFamily: 'ProductSans',
+                                    fontSize: 12,
+                                    color: context.textTertiary,
+                                  ),
+                                ),
+                                value: settings.failedUnlockProtectionEnabled,
+                                onChanged: (value) async {
+                                  await _toggleFailedUnlockProtection(
+                                    settings,
+                                    value,
+                                  );
+                                },
+                                activeThumbColor: context.accentColor,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              if (settings.failedUnlockProtectionEnabled) ...[
+                                _buildSecurityOptionDropdown(
+                                  title: 'Attempts Before Cooldown',
+                                  subtitle:
+                                      'How many failed unlocks are allowed before access is paused',
+                                  value:
+                                      settings.maxFailedAttemptsBeforeLockout,
+                                  options: _lockoutAttemptOptions,
+                                  labelBuilder: (value) => value.toString(),
+                                  onChanged: (value) async {
+                                    if (value == null) return;
+                                    await _saveUnlockProtectionSettings(
+                                      settings.copyWith(
+                                        maxFailedAttemptsBeforeLockout: value,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                _buildSecurityOptionDropdown(
+                                  title: 'Cooldown Timer',
+                                  subtitle:
+                                      'How long unlock stays disabled after the cooldown threshold is hit',
+                                  value: settings.lockoutDurationSeconds,
+                                  options: _lockoutDurationOptions,
+                                  labelBuilder: _lockoutDurationLabel,
+                                  onChanged: (value) async {
+                                    if (value == null) return;
+                                    await _saveUnlockProtectionSettings(
+                                      settings.copyWith(
+                                        lockoutDurationSeconds: value,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                SwitchListTile(
+                                  title: const Text(
+                                    'Wipe Vault At Hard Limit',
+                                    style: TextStyle(fontFamily: 'ProductSans'),
+                                  ),
+                                  subtitle: Text(
+                                    'Permanently erases real and decoy vault files after too many failed unlocks',
+                                    style: TextStyle(
+                                      fontFamily: 'ProductSans',
+                                      fontSize: 12,
+                                      color: context.textTertiary,
+                                    ),
+                                  ),
+                                  value: settings.wipeVaultOnMaxFailedAttempts,
+                                  onChanged: (value) async {
+                                    await _toggleVaultWipeProtection(
+                                      settings,
+                                      value,
+                                    );
+                                  },
+                                  activeThumbColor: AppColors.error,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                if (settings.wipeVaultOnMaxFailedAttempts) ...[
+                                  _buildSecurityOptionDropdown(
+                                    title: 'Attempts Before Wipe',
+                                    subtitle:
+                                        'Locker erases all vault files when this failed-attempt total is reached',
+                                    value: settings.maxFailedAttemptsBeforeWipe,
+                                    options: _wipeAttemptOptions,
+                                    labelBuilder: (value) => value.toString(),
+                                    onChanged: (value) async {
+                                      if (value == null) return;
+                                      await _saveUnlockProtectionSettings(
+                                        settings.copyWith(
+                                          maxFailedAttemptsBeforeWipe: value,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  Container(
+                                    width: double.infinity,
+                                    margin: const EdgeInsets.only(top: 8),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.error
+                                          .withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.error
+                                            .withValues(alpha: 0.18),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Warning: wiping the vault is permanent and cannot be undone.',
+                                      style: TextStyle(
+                                        fontFamily: 'ProductSans',
+                                        fontSize: 12,
+                                        color: AppColors.error,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ],
                           ),
                         ),
@@ -2571,6 +2706,118 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _saveVaultSettings(VaultSettings settings) async {
+    await ref.read(vaultServiceProvider).updateSettings(settings);
+    ref.invalidate(vaultSettingsProvider);
+  }
+
+  Future<void> _saveUnlockProtectionSettings(VaultSettings settings) async {
+    await _saveVaultSettings(settings);
+    await AuthService().resetUnlockAttempts();
+  }
+
+  Future<void> _toggleFailedUnlockProtection(
+    VaultSettings settings,
+    bool enabled,
+  ) async {
+    await _saveUnlockProtectionSettings(
+      settings.copyWith(failedUnlockProtectionEnabled: enabled),
+    );
+  }
+
+  Future<void> _toggleVaultWipeProtection(
+    VaultSettings settings,
+    bool enabled,
+  ) async {
+    if (enabled) {
+      final confirmed = await _confirmDangerousWipeProtection();
+      if (confirmed != true) return;
+    }
+
+    await _saveUnlockProtectionSettings(
+      settings.copyWith(wipeVaultOnMaxFailedAttempts: enabled),
+    );
+  }
+
+  Future<bool?> _confirmDangerousWipeProtection() {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Theme.of(dialogContext).scaffoldBackgroundColor,
+        title: const Text(
+          'Enable Vault Wipe?',
+          style: TextStyle(fontFamily: 'ProductSans'),
+        ),
+        content: const Text(
+          'When the failed-attempt limit is reached, Locker will permanently erase the real and decoy vault files on this device. This cannot be undone.',
+          style: TextStyle(fontFamily: 'ProductSans'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecurityOptionDropdown({
+    required String title,
+    required String subtitle,
+    required int value,
+    required List<int> options,
+    required String Function(int value) labelBuilder,
+    required ValueChanged<int?> onChanged,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        title,
+        style: const TextStyle(fontFamily: 'ProductSans'),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          fontFamily: 'ProductSans',
+          fontSize: 12,
+          color: context.textTertiary,
+        ),
+      ),
+      trailing: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: value,
+          borderRadius: BorderRadius.circular(12),
+          items: options
+              .map(
+                (option) => DropdownMenuItem<int>(
+                  value: option,
+                  child: Text(
+                    labelBuilder(option),
+                    style: const TextStyle(fontFamily: 'ProductSans'),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  String _lockoutDurationLabel(int seconds) {
+    if (seconds < 60) {
+      return '${seconds}s';
+    }
+
+    final minutes = seconds ~/ 60;
+    return minutes == 1 ? '1 min' : '$minutes min';
   }
 
   Widget _buildThemeToggle(BuildContext context, WidgetRef ref) {

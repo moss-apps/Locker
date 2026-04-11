@@ -7,6 +7,8 @@ import 'package:local_auth/local_auth.dart';
 import 'package:local_auth_android/local_auth_android.dart';
 import 'package:local_auth_darwin/local_auth_darwin.dart';
 import 'auto_kill_service.dart';
+import 'decoy_service.dart';
+import 'vault_service.dart';
 
 /// Authentication service that handles password and biometric authentication
 class AuthService {
@@ -23,8 +25,14 @@ class AuthService {
   static const String _biometricsEnabledKey = 'biometrics_enabled';
   static const String _authMethodKey =
       'auth_method'; // 'pin', 'password', 'biometric'
+  static const String _failedUnlockAttemptsKey = 'failed_unlock_attempts';
+  static const String _totalFailedUnlockAttemptsKey =
+      'total_failed_unlock_attempts';
+  static const String _unlockLockoutUntilKey = 'unlock_lockout_until';
 
   final LocalAuthentication _localAuth = LocalAuthentication();
+  final VaultService _vaultService = VaultService.instance;
+  final DecoyService _decoyService = DecoyService.instance;
 
   /// Check if this is the first time launching the app (no password set)
   Future<bool> isFirstTime() async {
@@ -168,12 +176,28 @@ class AuthService {
   Future<bool> authenticateWithBiometrics({
     String reason = 'Please authenticate to access your locker',
   }) async {
+    final result = await performBiometricAuthentication(reason: reason);
+    return result.isSuccess;
+  }
+
+  /// Authenticate using biometrics and return a detailed result.
+  Future<BiometricAuthenticationResult> performBiometricAuthentication({
+    String reason = 'Please authenticate to access your locker',
+  }) async {
     try {
       final isAvailable = await isBiometricAvailable();
-      if (!isAvailable) return false;
+      if (!isAvailable) {
+        return const BiometricAuthenticationResult(
+          status: BiometricAuthenticationStatus.unavailable,
+        );
+      }
 
       final isEnabled = await isBiometricEnabled();
-      if (!isEnabled) return false;
+      if (!isEnabled) {
+        return const BiometricAuthenticationResult(
+          status: BiometricAuthenticationStatus.unavailable,
+        );
+      }
 
       final isAuthenticated =
           await AutoKillService.runSafe(() => _localAuth.authenticate(
@@ -189,19 +213,33 @@ class AuthService {
                 ],
               ));
 
-      return isAuthenticated;
+      return BiometricAuthenticationResult(
+        status: isAuthenticated
+            ? BiometricAuthenticationStatus.success
+            : BiometricAuthenticationStatus.failed,
+      );
     } on PlatformException catch (e) {
-      // Handle specific biometric errors
-      if (e.code == 'NotAvailable') {
-        return false;
-      } else if (e.code == 'NotEnrolled') {
-        return false;
-      } else if (e.code == 'LockedOut' || e.code == 'PermanentlyLockedOut') {
-        return false;
+      if (e.code == 'UserCanceled' ||
+          e.code == 'Canceled' ||
+          e.code == 'SystemCanceled') {
+        return const BiometricAuthenticationResult(
+          status: BiometricAuthenticationStatus.canceled,
+        );
       }
-      return false;
+
+      if (e.code == 'LockedOut' || e.code == 'PermanentlyLockedOut') {
+        return const BiometricAuthenticationResult(
+          status: BiometricAuthenticationStatus.lockedOut,
+        );
+      }
+
+      return const BiometricAuthenticationResult(
+        status: BiometricAuthenticationStatus.unavailable,
+      );
     } catch (e) {
-      return false;
+      return const BiometricAuthenticationResult(
+        status: BiometricAuthenticationStatus.unavailable,
+      );
     }
   }
 
@@ -410,10 +448,83 @@ class AuthService {
       await _storage.delete(key: _firstTimeKey);
       await _storage.delete(key: _biometricsEnabledKey);
       await _storage.delete(key: _authMethodKey);
+      await resetUnlockAttempts();
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  /// Get the current unlock protection state.
+  Future<UnlockSecurityState> getUnlockSecurityState() async {
+    final settings = await _vaultService.getSettings();
+    return _loadUnlockSecurityState(settings);
+  }
+
+  /// Clear any failed unlock counters and cooldown state.
+  Future<void> resetUnlockAttempts() async {
+    await _storage.delete(key: _failedUnlockAttemptsKey);
+    await _storage.delete(key: _totalFailedUnlockAttemptsKey);
+    await _storage.delete(key: _unlockLockoutUntilKey);
+  }
+
+  /// Register a failed unlock attempt and return the updated state.
+  Future<UnlockFailureResult> registerFailedUnlockAttempt() async {
+    final settings = await _vaultService.getSettings();
+    var state = await _loadUnlockSecurityState(settings);
+
+    if (!settings.failedUnlockProtectionEnabled) {
+      return UnlockFailureResult(state: state);
+    }
+
+    var failedAttempts = state.failedAttempts + 1;
+    var totalFailedAttempts = settings.wipeVaultOnMaxFailedAttempts
+        ? state.totalFailedAttempts + 1
+        : 0;
+    DateTime? lockoutUntil;
+    var enteredLockout = false;
+    var vaultWiped = false;
+
+    if (settings.wipeVaultOnMaxFailedAttempts &&
+        totalFailedAttempts >= settings.maxFailedAttemptsBeforeWipe) {
+      await _vaultService.clearVault();
+      await _decoyService.clearDecoyVault();
+      failedAttempts = 0;
+      totalFailedAttempts = 0;
+      vaultWiped = true;
+    }
+
+    if (settings.maxFailedAttemptsBeforeLockout > 0 &&
+        failedAttempts >= settings.maxFailedAttemptsBeforeLockout) {
+      lockoutUntil = DateTime.now().add(
+        Duration(seconds: settings.lockoutDurationSeconds),
+      );
+      failedAttempts = 0;
+      enteredLockout = true;
+    }
+
+    await _persistUnlockSecurityState(
+      failedAttempts: failedAttempts,
+      totalFailedAttempts: totalFailedAttempts,
+      lockoutUntil: lockoutUntil,
+    );
+
+    state = UnlockSecurityState(
+      protectionEnabled: settings.failedUnlockProtectionEnabled,
+      failedAttempts: failedAttempts,
+      totalFailedAttempts: totalFailedAttempts,
+      maxFailedAttemptsBeforeLockout: settings.maxFailedAttemptsBeforeLockout,
+      lockoutDurationSeconds: settings.lockoutDurationSeconds,
+      wipeVaultOnMaxFailedAttempts: settings.wipeVaultOnMaxFailedAttempts,
+      maxFailedAttemptsBeforeWipe: settings.maxFailedAttemptsBeforeWipe,
+      lockoutUntil: lockoutUntil,
+    );
+
+    return UnlockFailureResult(
+      state: state,
+      enteredLockout: enteredLockout,
+      vaultWiped: vaultWiped,
+    );
   }
 
   /// Hash password using SHA-256
@@ -421,6 +532,88 @@ class AuthService {
     final bytes = utf8.encode(password);
     final digest = sha256.convert(bytes);
     return digest.toString();
+  }
+
+  Future<UnlockSecurityState> _loadUnlockSecurityState(
+    VaultSettings settings,
+  ) async {
+    var failedAttempts = int.tryParse(
+            await _storage.read(key: _failedUnlockAttemptsKey) ?? '') ??
+        0;
+    var totalFailedAttempts = int.tryParse(
+          await _storage.read(key: _totalFailedUnlockAttemptsKey) ?? '',
+        ) ??
+        0;
+    final lockoutMillis =
+        int.tryParse(await _storage.read(key: _unlockLockoutUntilKey) ?? '');
+    DateTime? lockoutUntil = lockoutMillis == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(lockoutMillis);
+
+    if (lockoutUntil != null && !lockoutUntil.isAfter(DateTime.now())) {
+      lockoutUntil = null;
+      failedAttempts = 0;
+      await _persistUnlockSecurityState(
+        failedAttempts: failedAttempts,
+        totalFailedAttempts: totalFailedAttempts,
+        lockoutUntil: null,
+      );
+    }
+
+    if (!settings.failedUnlockProtectionEnabled &&
+        (failedAttempts != 0 ||
+            totalFailedAttempts != 0 ||
+            lockoutUntil != null)) {
+      failedAttempts = 0;
+      totalFailedAttempts = 0;
+      lockoutUntil = null;
+      await resetUnlockAttempts();
+    }
+
+    if (!settings.wipeVaultOnMaxFailedAttempts && totalFailedAttempts != 0) {
+      totalFailedAttempts = 0;
+      await _persistUnlockSecurityState(
+        failedAttempts: failedAttempts,
+        totalFailedAttempts: 0,
+        lockoutUntil: lockoutUntil,
+      );
+    }
+
+    return UnlockSecurityState(
+      protectionEnabled: settings.failedUnlockProtectionEnabled,
+      failedAttempts: failedAttempts,
+      totalFailedAttempts: totalFailedAttempts,
+      maxFailedAttemptsBeforeLockout: settings.maxFailedAttemptsBeforeLockout,
+      lockoutDurationSeconds: settings.lockoutDurationSeconds,
+      wipeVaultOnMaxFailedAttempts: settings.wipeVaultOnMaxFailedAttempts,
+      maxFailedAttemptsBeforeWipe: settings.maxFailedAttemptsBeforeWipe,
+      lockoutUntil: lockoutUntil,
+    );
+  }
+
+  Future<void> _persistUnlockSecurityState({
+    required int failedAttempts,
+    required int totalFailedAttempts,
+    required DateTime? lockoutUntil,
+  }) async {
+    await _storage.write(
+      key: _failedUnlockAttemptsKey,
+      value: failedAttempts.toString(),
+    );
+    await _storage.write(
+      key: _totalFailedUnlockAttemptsKey,
+      value: totalFailedAttempts.toString(),
+    );
+
+    if (lockoutUntil == null) {
+      await _storage.delete(key: _unlockLockoutUntilKey);
+      return;
+    }
+
+    await _storage.write(
+      key: _unlockLockoutUntilKey,
+      value: lockoutUntil.millisecondsSinceEpoch.toString(),
+    );
   }
 
   /// Get biometric type display name
@@ -437,4 +630,83 @@ class AuthService {
     }
     return 'Biometric';
   }
+}
+
+enum BiometricAuthenticationStatus {
+  success,
+  failed,
+  canceled,
+  lockedOut,
+  unavailable,
+}
+
+class BiometricAuthenticationResult {
+  final BiometricAuthenticationStatus status;
+
+  const BiometricAuthenticationResult({required this.status});
+
+  bool get isSuccess => status == BiometricAuthenticationStatus.success;
+
+  bool get shouldCountAsFailedUnlock =>
+      status == BiometricAuthenticationStatus.failed ||
+      status == BiometricAuthenticationStatus.lockedOut;
+}
+
+class UnlockSecurityState {
+  final bool protectionEnabled;
+  final int failedAttempts;
+  final int totalFailedAttempts;
+  final int maxFailedAttemptsBeforeLockout;
+  final int lockoutDurationSeconds;
+  final bool wipeVaultOnMaxFailedAttempts;
+  final int maxFailedAttemptsBeforeWipe;
+  final DateTime? lockoutUntil;
+
+  const UnlockSecurityState({
+    this.protectionEnabled = false,
+    this.failedAttempts = 0,
+    this.totalFailedAttempts = 0,
+    this.maxFailedAttemptsBeforeLockout = 5,
+    this.lockoutDurationSeconds = 30,
+    this.wipeVaultOnMaxFailedAttempts = false,
+    this.maxFailedAttemptsBeforeWipe = 12,
+    this.lockoutUntil,
+  });
+
+  bool get isLockedOut => lockoutUntil?.isAfter(DateTime.now()) ?? false;
+
+  Duration get remainingLockout {
+    if (!isLockedOut || lockoutUntil == null) return Duration.zero;
+    return lockoutUntil!.difference(DateTime.now());
+  }
+
+  int get attemptsRemainingBeforeLockout {
+    if (!protectionEnabled || maxFailedAttemptsBeforeLockout <= 0) {
+      return 0;
+    }
+
+    final remaining = maxFailedAttemptsBeforeLockout - failedAttempts;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  int? get attemptsRemainingBeforeWipe {
+    if (!protectionEnabled || !wipeVaultOnMaxFailedAttempts) {
+      return null;
+    }
+
+    final remaining = maxFailedAttemptsBeforeWipe - totalFailedAttempts;
+    return remaining < 0 ? 0 : remaining;
+  }
+}
+
+class UnlockFailureResult {
+  final UnlockSecurityState state;
+  final bool enteredLockout;
+  final bool vaultWiped;
+
+  const UnlockFailureResult({
+    required this.state,
+    this.enteredLockout = false,
+    this.vaultWiped = false,
+  });
 }

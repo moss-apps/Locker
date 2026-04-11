@@ -1210,9 +1210,13 @@ class VaultService {
   }
 
   /// Export a file from vault to a location
-  Future<File?> exportFile(String fileId, String destinationPath) async {
+  Future<File?> exportFile(
+    String fileId,
+    String destinationPath, {
+    bool isDecoy = false,
+  }) async {
     try {
-      final vaultedFile = await getFileById(fileId);
+      final vaultedFile = await getFileById(fileId, isDecoy: isDecoy);
       if (vaultedFile == null) return null;
 
       final sourceFile = File(vaultedFile.vaultPath);
@@ -1282,9 +1286,12 @@ class VaultService {
   /// Clear all vault data (use with caution!)
   Future<void> clearVault({bool isDecoy = false}) async {
     try {
-      final directory = isDecoy ? _decoyDirectory : _vaultDirectory;
+      final appDir = await getApplicationDocumentsDirectory();
+      final directory = Directory(
+        '${appDir.path}/${isDecoy ? _decoyFolderName : _vaultFolderName}',
+      );
 
-      if (directory != null && await directory.exists()) {
+      if (await directory.exists()) {
         await directory.delete(recursive: true);
       }
 
@@ -1359,6 +1366,11 @@ class VaultSettings {
   final bool decoyModeEnabled;
   final String? decoyPin;
   final bool compressionEnabled;
+  final bool failedUnlockProtectionEnabled;
+  final int maxFailedAttemptsBeforeLockout;
+  final int lockoutDurationSeconds;
+  final bool wipeVaultOnMaxFailedAttempts;
+  final int maxFailedAttemptsBeforeWipe;
 
   const VaultSettings({
     this.encryptionEnabled = false,
@@ -1370,6 +1382,11 @@ class VaultSettings {
     this.decoyModeEnabled = false,
     this.decoyPin,
     this.compressionEnabled = false,
+    this.failedUnlockProtectionEnabled = false,
+    this.maxFailedAttemptsBeforeLockout = 5,
+    this.lockoutDurationSeconds = 30,
+    this.wipeVaultOnMaxFailedAttempts = false,
+    this.maxFailedAttemptsBeforeWipe = 12,
   });
 
   VaultSettings copyWith({
@@ -1382,6 +1399,11 @@ class VaultSettings {
     bool? decoyModeEnabled,
     String? decoyPin,
     bool? compressionEnabled,
+    bool? failedUnlockProtectionEnabled,
+    int? maxFailedAttemptsBeforeLockout,
+    int? lockoutDurationSeconds,
+    bool? wipeVaultOnMaxFailedAttempts,
+    int? maxFailedAttemptsBeforeWipe,
   }) {
     return VaultSettings(
       encryptionEnabled: encryptionEnabled ?? this.encryptionEnabled,
@@ -1393,6 +1415,16 @@ class VaultSettings {
       decoyModeEnabled: decoyModeEnabled ?? this.decoyModeEnabled,
       decoyPin: decoyPin ?? this.decoyPin,
       compressionEnabled: compressionEnabled ?? this.compressionEnabled,
+      failedUnlockProtectionEnabled:
+          failedUnlockProtectionEnabled ?? this.failedUnlockProtectionEnabled,
+      maxFailedAttemptsBeforeLockout:
+          maxFailedAttemptsBeforeLockout ?? this.maxFailedAttemptsBeforeLockout,
+      lockoutDurationSeconds:
+          lockoutDurationSeconds ?? this.lockoutDurationSeconds,
+      wipeVaultOnMaxFailedAttempts:
+          wipeVaultOnMaxFailedAttempts ?? this.wipeVaultOnMaxFailedAttempts,
+      maxFailedAttemptsBeforeWipe:
+          maxFailedAttemptsBeforeWipe ?? this.maxFailedAttemptsBeforeWipe,
     );
   }
 
@@ -1406,6 +1438,11 @@ class VaultSettings {
         'decoyModeEnabled': decoyModeEnabled,
         'decoyPin': decoyPin,
         'compressionEnabled': compressionEnabled,
+        'failedUnlockProtectionEnabled': failedUnlockProtectionEnabled,
+        'maxFailedAttemptsBeforeLockout': maxFailedAttemptsBeforeLockout,
+        'lockoutDurationSeconds': lockoutDurationSeconds,
+        'wipeVaultOnMaxFailedAttempts': wipeVaultOnMaxFailedAttempts,
+        'maxFailedAttemptsBeforeWipe': maxFailedAttemptsBeforeWipe,
       };
 
   factory VaultSettings.fromJson(Map<String, dynamic> json) {
@@ -1422,6 +1459,15 @@ class VaultSettings {
       decoyModeEnabled: json['decoyModeEnabled'] as bool? ?? false,
       decoyPin: json['decoyPin'] as String?,
       compressionEnabled: json['compressionEnabled'] as bool? ?? false,
+      failedUnlockProtectionEnabled:
+          json['failedUnlockProtectionEnabled'] as bool? ?? false,
+      maxFailedAttemptsBeforeLockout:
+          json['maxFailedAttemptsBeforeLockout'] as int? ?? 5,
+      lockoutDurationSeconds: json['lockoutDurationSeconds'] as int? ?? 30,
+      wipeVaultOnMaxFailedAttempts:
+          json['wipeVaultOnMaxFailedAttempts'] as bool? ?? false,
+      maxFailedAttemptsBeforeWipe:
+          json['maxFailedAttemptsBeforeWipe'] as int? ?? 12,
     );
   }
 }

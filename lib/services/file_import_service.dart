@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../models/vaulted_file.dart';
 import 'auto_kill_service.dart';
+import 'decoy_service.dart';
 import 'media_scanner_service.dart';
 import 'office_converter_service.dart';
 import 'permission_service.dart';
@@ -21,6 +22,7 @@ class FileImportService {
   final PermissionService _permissionService = PermissionService.instance;
   final VaultService _vaultService = VaultService.instance;
   final MediaScannerService _mediaScannerService = MediaScannerService.instance;
+  final DecoyService _decoyService = DecoyService.instance;
 
   /// Import images from gallery using photo_manager for proper deletion support
   Future<ImportResult> importImagesFromGallery({
@@ -90,6 +92,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false, // We handle deletion via PhotoManager
+        isDecoy: _decoyService.isDecoyModeActive,
         onProgress: onProgress,
       );
 
@@ -138,6 +141,7 @@ class FileImportService {
 
     try {
       debugPrint('[FileImport] Importing ${assets.length} assets directly');
+      final isDecoy = _decoyService.isDecoyModeActive;
 
       // Check if we have all files access for deletion
       final hasAllFilesAccess = await _permissionService.hasAllFilesAccess();
@@ -234,26 +238,29 @@ class FileImportService {
       debugPrint('[FileImport] Adding ${filesToVault.length} files to vault');
 
       // Check for potential duplicates before importing
-      final existingFiles = await _vaultService.getAllFiles(isDecoy: false);
-      final existingNames = existingFiles.map((f) => f.originalName.toLowerCase()).toSet();
-      
+      final existingFiles = await _vaultService.getAllFiles(isDecoy: isDecoy);
+      final existingNames =
+          existingFiles.map((f) => f.originalName.toLowerCase()).toSet();
+
       // Filter out files that might already be in vault
       final filesToImport = <FileToVault>[];
       final skippedDuplicates = <String>[];
-      
+
       for (final file in filesToVault) {
         if (existingNames.contains(file.originalName.toLowerCase())) {
-          debugPrint('[FileImport] Potential duplicate detected: ${file.originalName}');
+          debugPrint(
+              '[FileImport] Potential duplicate detected: ${file.originalName}');
           skippedDuplicates.add(file.originalName);
         } else {
           filesToImport.add(file);
         }
       }
-      
+
       if (skippedDuplicates.isNotEmpty) {
-        debugPrint('[FileImport] Skipping ${skippedDuplicates.length} potential duplicates');
+        debugPrint(
+            '[FileImport] Skipping ${skippedDuplicates.length} potential duplicates');
       }
-      
+
       if (filesToImport.isEmpty) {
         return ImportResult(
           success: false,
@@ -266,6 +273,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToImport,
         deleteOriginals: false, // We handle deletion via PhotoManager
+        isDecoy: isDecoy,
         onProgress: (current, total) {
           // Map the vault service progress - estimate size progress proportionally
           final estimatedSize =
@@ -282,14 +290,15 @@ class FileImportService {
       if (deleteOriginals && imported.isNotEmpty && validAssets.isNotEmpty) {
         debugPrint(
             '[FileImport] Attempting to delete ${validAssets.length} assets from gallery');
-        
+
         // Only delete the assets that were successfully imported
-        final importedNames = imported.map((f) => f.originalName.toLowerCase()).toSet();
+        final importedNames =
+            imported.map((f) => f.originalName.toLowerCase()).toSet();
         final assetsToDelete = validAssets.where((asset) {
           final title = asset.title?.toLowerCase() ?? '';
           return importedNames.contains(title);
         }).toList();
-        
+
         if (assetsToDelete.isNotEmpty) {
           deletedFromGallery = await _deleteAssetsFromGallery(assetsToDelete);
 
@@ -341,6 +350,7 @@ class FileImportService {
 
     try {
       debugPrint('[FileImport] Unhiding ${fileIds.length} files');
+      final isDecoy = _decoyService.isDecoyModeActive;
 
       // Check if we have all files access
       final hasAllFilesAccess = await _permissionService.hasAllFilesAccess();
@@ -362,7 +372,10 @@ class FileImportService {
       for (int i = 0; i < fileIds.length; i++) {
         try {
           final fileId = fileIds[i];
-          final vaultedFile = await _vaultService.getFileById(fileId);
+          final vaultedFile = await _vaultService.getFileById(
+            fileId,
+            isDecoy: isDecoy,
+          );
 
           if (vaultedFile == null) {
             debugPrint('[FileImport] File not found in vault: $fileId');
@@ -386,8 +399,11 @@ class FileImportService {
           }
 
           // Export the file from vault
-          final exportedFile =
-              await _vaultService.exportFile(fileId, destinationPath);
+          final exportedFile = await _vaultService.exportFile(
+            fileId,
+            destinationPath,
+            isDecoy: isDecoy,
+          );
 
           if (exportedFile != null && await exportedFile.exists()) {
             debugPrint('[FileImport] Exported file to: $destinationPath');
@@ -403,8 +419,8 @@ class FileImportService {
             if (removeFromVault) {
               // Small delay to ensure media scan completes
               await Future.delayed(const Duration(milliseconds: 500));
-              
-              await _vaultService.removeFile(fileId);
+
+              await _vaultService.removeFile(fileId, isDecoy: isDecoy);
               debugPrint('[FileImport] Removed file from vault: $fileId');
             }
           } else {
@@ -447,14 +463,15 @@ class FileImportService {
   Future<void> _notifyMediaStore(String filePath) async {
     try {
       debugPrint('[FileImport] Notifying MediaStore about file: $filePath');
-      
+
       // Use the media scanner service to scan the file without creating duplicates
       final success = await _mediaScannerService.scanFile(filePath);
-      
+
       if (success) {
         debugPrint('[FileImport] Successfully scanned file: $filePath');
       } else {
-        debugPrint('[FileImport] Media scan may have failed, but file is still in DCIM');
+        debugPrint(
+            '[FileImport] Media scan may have failed, but file is still in DCIM');
       }
     } catch (e) {
       debugPrint('[FileImport] Error notifying MediaStore: $e');
@@ -533,6 +550,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false, // We handle deletion via PhotoManager
+        isDecoy: _decoyService.isDecoyModeActive,
         onProgress: onProgress,
       );
 
@@ -598,6 +616,7 @@ class FileImportService {
         type: VaultedFileType.image,
         mimeType: mimeType,
         deleteOriginal: true, // Camera captures are temporary
+        isDecoy: _decoyService.isDecoyModeActive,
       );
 
       if (imported == null) {
@@ -672,6 +691,7 @@ class FileImportService {
         type: VaultedFileType.video,
         mimeType: mimeType,
         deleteOriginal: true, // Camera captures are temporary
+        isDecoy: _decoyService.isDecoyModeActive,
       );
 
       if (imported == null) {
@@ -733,6 +753,7 @@ class FileImportService {
         type: type,
         mimeType: mimeType,
         deleteOriginal: deleteOriginal,
+        isDecoy: _decoyService.isDecoyModeActive,
       );
 
       if (imported == null) {
@@ -808,6 +829,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false,
+        isDecoy: _decoyService.isDecoyModeActive,
         onProgress: onProgress,
       );
 
@@ -899,6 +921,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false,
+        isDecoy: _decoyService.isDecoyModeActive,
         onProgress: onProgress,
       );
 
@@ -1165,6 +1188,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false,
+        isDecoy: _decoyService.isDecoyModeActive,
         onProgress: onProgress,
       );
 
@@ -1271,6 +1295,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false,
+        isDecoy: _decoyService.isDecoyModeActive,
         onProgress: onProgress,
       );
 
@@ -1380,6 +1405,7 @@ class FileImportService {
       final imported = await _vaultService.addFiles(
         files: filesToVault,
         deleteOriginals: false, // We handle deletion via PhotoManager
+        isDecoy: _decoyService.isDecoyModeActive,
         onProgress: onProgress,
       );
 
