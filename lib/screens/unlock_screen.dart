@@ -58,7 +58,7 @@ class _UnlockScreenState extends State<UnlockScreen> {
 
     // Auto-trigger biometric if that's the method
     if (method == 'biometric' && !unlockState.isLockedOut) {
-      _handleBiometricAuth(countFailure: false, showError: false);
+      _handleBiometricAuth(showError: false);
     }
   }
 
