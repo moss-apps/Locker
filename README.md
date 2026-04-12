@@ -20,6 +20,7 @@ Locker is a secure, private media vault application built with Flutter for Andro
 - [License](#license)
 - [Disclaimer](#disclaimer)
 - [Contact](#contact)
+- [Documentation](#documentation)
 
 ---
 
@@ -33,6 +34,9 @@ Locker is a secure, private media vault application built with Flutter for Andro
 - **Document Support**: Store and view PDFs, Office documents (Word, Excel, PowerPoint), and text files
 - **Custom Media Picker**: Built-in media picker with album browsing and multi-select support
 - **Custom Document Picker**: File browser for selecting documents from device storage
+- **Media Scanner**: Automatic duplicate detection when importing files
+- **Backup & Restore**: Create local backups of your vault and restore when needed
+- **Compression Options**: Choose compression levels for media files to save storage space
 
 ### Organization
 
@@ -48,6 +52,7 @@ Locker is a secure, private media vault application built with Flutter for Andro
 - **Video Player**: Built-in video player with playback controls, speed adjustment, and loop options
 - **Document Viewer**: Native PDF rendering and Office document conversion for viewing
 - **File Export**: Export files to Downloads folder or open with external applications
+- **Performance Overlay**: Real-time display of FPS and performance metrics
 
 ### Security Features
 
@@ -58,6 +63,14 @@ Locker is a secure, private media vault application built with Flutter for Andro
 - **Auto-Kill**: Automatically removes app from recent apps when leaving
 - **Decoy Mode**: Set up a fake vault with a separate PIN to show if forced to unlock
 - **Secure Delete**: Overwrite files before deletion to prevent recovery
+- **Change Security**: Update PIN or password at any time with verification
+
+### Theme & Customization
+
+- **Dynamic Accent Colors**: Choose from multiple accent colors (Blue, Purple, Pink, Red, Orange, Teal, Green, Gunmetal)
+- **Custom Theme**: Personalize the app's look to match your style
+- **Performance Mode**: Adjust frame rate and performance settings for optimal experience
+- **Glassmorphism**: Modern unlock screen design with visual effects
 
 ---
 
@@ -70,6 +83,16 @@ Locker supports three authentication methods:
 1. **PIN**: A 6-digit numeric PIN
 2. **Password**: An alphanumeric password of any length
 3. **Biometrics**: Fingerprint or face recognition (requires PIN or password as backup)
+
+### Changing Authentication
+
+You can change your PIN or password at any time:
+
+1. Open Settings from the drawer
+2. Select "Change Security"
+3. Verify your current credentials
+4. Set up your new PIN or password
+5. Optionally enable or disable biometrics
 
 ### Encryption
 
@@ -102,6 +125,7 @@ Decoy mode allows you to set up a fake vault with a different PIN. If someone fo
 - **Target SDK**: Android 14 (API level 34)
 - **Minimum SDK**: Android 6.0 (API level 23)
 - **Storage**: Sufficient space for your hidden files
+- **Flutter**: 3.4.4 or higher
 
 ---
 
@@ -250,6 +274,9 @@ flutter run
 - **Storage**: Flutter Secure Storage for credentials and metadata
 - **Encryption**: PointyCastle (AES-256)
 - **Native Integration**: Kotlin for Android-specific features
+- **Compression**: flutter_image_compress, video_compress
+- **Media Access**: photo_manager
+- **PDF Rendering**: pdfrx
 
 ### Project Structure
 
@@ -260,8 +287,11 @@ lib/
     album.dart              # Album and tag models
     document_file.dart      # Document file model
     vaulted_file.dart       # Vaulted file model
+    accent_color.dart      # Accent color model
   providers/                # Riverpod state providers
     vault_providers.dart    # Vault state management
+    theme_provider.dart     # Theme management
+    performance_provider.dart # Performance settings
   screens/                  # UI screens
     albums_screen.dart
     album_detail_screen.dart
@@ -274,6 +304,15 @@ lib/
     media_picker_screen.dart
     media_viewer_screen.dart
     tags_screen.dart
+    unlock_screen.dart
+    pin_setup_screen.dart
+    password_setup_screen.dart
+    biometric_setup_screen.dart
+    change_security_screen.dart
+    accent_color_picker_screen.dart
+    performance_settings_screen.dart
+    local_backup_screen.dart
+    folder_picker_screen.dart
     ...
   services/                 # Business logic services
     auth_service.dart       # Authentication handling
@@ -282,17 +321,33 @@ lib/
     file_import_service.dart # Import/export logic
     permission_service.dart # Permission handling
     vault_service.dart      # Core vault operations
+    media_scanner_service.dart # Media scanning
+    backup_service.dart    # Backup and restore
+    compression_service.dart # Media compression
+    media_compress_service.dart # Video compression
+    decoy_service.dart     # Decoy mode
+    office_converter_service.dart # Office document conversion
   themes/                   # App theming
     app_colors.dart
+    app_theme.dart
   utils/                    # Utility classes
     toast_utils.dart
+    frame_rate_optimizer.dart # Performance optimization
+    performance_config.dart # Performance settings
+    compression_helper.dart # Compression utilities
+    vault_file_checker.dart # File validation
+    encryption_diagnostics.dart # Encryption diagnostics
   widgets/                  # Reusable widgets
     permission_warning_banner.dart
+    optimized_image_widget.dart
+    performance_overlay_widget.dart
+    compression_options_dialog.dart
+    operation_progress_sheet.dart
     ...
 
 android/
   app/src/main/kotlin/      # Native Kotlin code
-    MainActivity.kt         # Auto-kill implementation
+    MainActivity.kt         # Auto-kill and performance
 ```
 
 ---
@@ -326,12 +381,25 @@ Access settings from the drawer menu or security icon:
 | Secure Delete | Overwrite files before deletion | On |
 | Default Sort | How files are sorted in the vault | Date Added (Newest) |
 | Decoy Mode | Enable fake vault with separate PIN | Off |
+| Accent Color | App accent color | Blue |
+| Performance Mode | Frame rate and optimization settings | Auto |
+| Backup | Create and restore local backups | Manual |
 
-### Changing Authentication
+### Backup & Restore
 
 1. Open Settings from the drawer
-2. Select "Security Settings"
-3. Choose "Change PIN/Password" or toggle biometrics
+2. Select "Local Backup"
+3. Choose "Create Backup" to export your vault data
+4. Choose "Restore Backup" to import a previous backup
+5. Follow the on-screen instructions
+
+### Performance Settings
+
+1. Open Settings from the drawer
+2. Select "Performance Settings"
+3. Adjust frame rate limit (60/90/120 FPS or Unlimited)
+4. Enable or disable performance overlay
+5. Configure memory optimization options
 
 ---
 
@@ -421,7 +489,18 @@ Built with the following open-source libraries:
 - PointyCastle for encryption
 - photo_manager for media access
 - pdfrx for PDF viewing
+- flutter_image_compress for image optimization
+- video_compress for video compression
+- archive for ZIP/RAR/7Z support
 - And many other excellent packages
+
+---
+
+## Documentation
+
+Additional documentation available:
+
+- [Architecture Diagram](docs/architecture_media.md) - Detailed system architecture design covering compression, encryption, and file operations
 
 ---
 
