@@ -2405,6 +2405,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             statusMessage: state.statusMessage,
             isProcessing: state.isProcessing,
             isComplete: state.isComplete,
+            isEncrypting: state.isEncrypting,
           ),
         ),
       );
@@ -2414,10 +2415,13 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         removeFromVault: true,
         onProgress: (current, total, {int? currentSize, int? totalSize}) {
           progressState.value = progressState.value.copyWith(
+            totalFiles: total,
             currentFile: current,
             totalSizeBytes: totalSize ?? 0,
             processedSizeBytes: currentSize ?? 0,
-            statusMessage: 'Processing file $current of $total...',
+            statusMessage: current == 0
+                ? 'Preparing files...'
+                : 'Processing file $current of $total...',
           );
         },
       );
@@ -2513,6 +2517,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             statusMessage: state.statusMessage,
             isProcessing: state.isProcessing,
             isComplete: state.isComplete,
+            isEncrypting: state.isEncrypting,
           ),
         ),
       );
@@ -2815,6 +2820,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           statusMessage: state.statusMessage,
           isProcessing: state.isProcessing,
           isComplete: state.isComplete,
+          isEncrypting: state.isEncrypting,
         ),
       ),
     );
@@ -2824,10 +2830,25 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       deleteOriginals: true, // Hide from gallery
       onProgress: (current, total, {int? currentSize, int? totalSize}) {
         progressState.value = progressState.value.copyWith(
+          totalFiles: total,
           currentFile: current,
           totalSizeBytes: totalSize ?? 0,
           processedSizeBytes: currentSize ?? 0,
-          statusMessage: 'Processing file $current of $total...',
+          statusMessage: current == 0
+              ? 'Preparing files...'
+              : 'Processing file $current of $total...',
+        );
+      },
+      onFileProgress: (fileInfo) {
+        progressState.value = progressState.value.copyWith(
+          totalFiles: fileInfo.total,
+          currentFile: fileInfo.current,
+          currentFileName: fileInfo.fileName,
+          statusMessage: fileInfo.status,
+          isEncrypting: fileInfo.isEncrypting,
+          processedSizeBytes:
+              fileInfo.isEncrypting ? fileInfo.encryptedBytes : null,
+          totalSizeBytes: fileInfo.isEncrypting ? fileInfo.totalBytes : null,
         );
       },
     );
@@ -2896,6 +2917,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           statusMessage: state.statusMessage,
           isProcessing: state.isProcessing,
           isComplete: state.isComplete,
+          isEncrypting: state.isEncrypting,
         ),
       ),
     );
@@ -2905,10 +2927,25 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       deleteOriginals: true, // Hide from gallery
       onProgress: (current, total, {int? currentSize, int? totalSize}) {
         progressState.value = progressState.value.copyWith(
+          totalFiles: total,
           currentFile: current,
           totalSizeBytes: totalSize ?? 0,
           processedSizeBytes: currentSize ?? 0,
-          statusMessage: 'Processing file $current of $total...',
+          statusMessage: current == 0
+              ? 'Preparing files...'
+              : 'Processing file $current of $total...',
+        );
+      },
+      onFileProgress: (fileInfo) {
+        progressState.value = progressState.value.copyWith(
+          totalFiles: fileInfo.total,
+          currentFile: fileInfo.current,
+          currentFileName: fileInfo.fileName,
+          statusMessage: fileInfo.status,
+          isEncrypting: fileInfo.isEncrypting,
+          processedSizeBytes:
+              fileInfo.isEncrypting ? fileInfo.encryptedBytes : null,
+          totalSizeBytes: fileInfo.isEncrypting ? fileInfo.totalBytes : null,
         );
       },
     );
@@ -2926,6 +2963,25 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     }
 
     Navigator.pop(context); // Close progress sheet
+  }
+
+  Future<void> _importFromDocuments() async {
+    Navigator.pop(context);
+
+    // Open document picker directly
+    final result = await FileImportService.instance.importFromDocumentFiles(
+      filePaths: (<String>[]), // Will be populated by picker
+      deleteOriginals: true,
+    );
+
+    if (!mounted) return;
+
+    if (result.success && result.importedCount > 0) {
+      ToastUtils.showSuccess('Imported ${result.importedCount} document(s)');
+      ref.read(vaultNotifierProvider.notifier).loadFiles();
+    } else if (!result.success) {
+      ToastUtils.showError(result.error ?? 'Import failed');
+    }
   }
 
   Future<void> _importMediaFromGallery() async {
@@ -2978,6 +3034,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           statusMessage: state.statusMessage,
           isProcessing: state.isProcessing,
           isComplete: state.isComplete,
+          isEncrypting: state.isEncrypting,
         ),
       ),
     );
@@ -2987,10 +3044,25 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       deleteOriginals: true, // Hide from gallery
       onProgress: (current, total, {int? currentSize, int? totalSize}) {
         progressState.value = progressState.value.copyWith(
+          totalFiles: total,
           currentFile: current,
           totalSizeBytes: totalSize ?? 0,
           processedSizeBytes: currentSize ?? 0,
-          statusMessage: 'Processing file $current of $total...',
+          statusMessage: current == 0
+              ? 'Preparing files...'
+              : 'Processing file $current of $total...',
+        );
+      },
+      onFileProgress: (fileInfo) {
+        progressState.value = progressState.value.copyWith(
+          totalFiles: fileInfo.total,
+          currentFile: fileInfo.current,
+          currentFileName: fileInfo.fileName,
+          statusMessage: fileInfo.status,
+          isEncrypting: fileInfo.isEncrypting,
+          processedSizeBytes:
+              fileInfo.isEncrypting ? fileInfo.encryptedBytes : null,
+          totalSizeBytes: fileInfo.isEncrypting ? fileInfo.totalBytes : null,
         );
       },
     );
