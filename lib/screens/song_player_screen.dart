@@ -1,7 +1,5 @@
 import 'dart:io';
-import 'dart:async';
 
-import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -31,7 +29,6 @@ class SongPlayerScreen extends ConsumerStatefulWidget {
 class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen>
     with WidgetsBindingObserver {
   final AudioPlayer _player = AudioPlayer();
-  StreamSubscription<PlayerException>? _playerErrorSubscription;
 
   bool _isLoading = true;
   bool _isCheckingFlick = true;
@@ -44,7 +41,6 @@ class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _playerErrorSubscription = _player.errorStream.listen(_handlePlaybackError);
     _loadSong();
     _loadFlickAvailability();
   }
@@ -55,7 +51,6 @@ class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen>
     if (_reenableAutoKillOnResume) {
       AutoKillService.setEnabled(true);
     }
-    _playerErrorSubscription?.cancel();
     _player.dispose();
     super.dispose();
   }
@@ -85,8 +80,6 @@ class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen>
     });
 
     try {
-      await _configureAudioSession();
-
       final vaultService = ref.read(vaultServiceProvider);
       final file = widget.file.isEncrypted && widget.file.encryptionIv != null
           ? await vaultService.getVaultedFile(widget.file.id)
@@ -101,24 +94,10 @@ class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen>
       }
 
       _playbackFile = file;
-      await _player.stop();
       await _player.setFilePath(file.path);
-      await _player.play();
 
       if (!mounted) return;
       setState(() => _isLoading = false);
-    } on PlayerException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Failed to load song: ${e.message}';
-        _isLoading = false;
-      });
-    } on PlayerInterruptedException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Song loading was interrupted: ${e.message}';
-        _isLoading = false;
-      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -133,31 +112,11 @@ class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen>
       if (_player.playing) {
         await _player.pause();
       } else {
-        if (_player.processingState == ProcessingState.completed) {
-          await _player.seek(Duration.zero);
-        }
         await _player.play();
       }
-    } on PlayerException catch (e) {
-      ToastUtils.showError('Playback failed: ${e.message}');
     } catch (e) {
       ToastUtils.showError('Playback failed: $e');
     }
-  }
-
-  Future<void> _configureAudioSession() async {
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.music());
-    await session.setActive(true);
-  }
-
-  void _handlePlaybackError(PlayerException error) {
-    if (!mounted) return;
-
-    setState(() {
-      _error = 'Playback failed: ${error.message}';
-      _isLoading = false;
-    });
   }
 
   Future<void> _seek(Duration position) async {
