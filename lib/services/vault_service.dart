@@ -80,6 +80,7 @@ class VaultService {
     // Create subdirectories for different file types
     await Directory('${_vaultDirectory!.path}/images').create(recursive: true);
     await Directory('${_vaultDirectory!.path}/videos').create(recursive: true);
+    await Directory('${_vaultDirectory!.path}/songs').create(recursive: true);
     await Directory('${_vaultDirectory!.path}/documents')
         .create(recursive: true);
     await Directory('${_vaultDirectory!.path}/thumbnails')
@@ -108,6 +109,7 @@ class VaultService {
 
     await Directory('${_decoyDirectory!.path}/images').create(recursive: true);
     await Directory('${_decoyDirectory!.path}/videos').create(recursive: true);
+    await Directory('${_decoyDirectory!.path}/songs').create(recursive: true);
     await Directory('${_decoyDirectory!.path}/documents')
         .create(recursive: true);
 
@@ -132,6 +134,8 @@ class VaultService {
         return 'images';
       case VaultedFileType.video:
         return 'videos';
+      case VaultedFileType.song:
+        return 'songs';
       case VaultedFileType.document:
       case VaultedFileType.other:
         return 'documents';
