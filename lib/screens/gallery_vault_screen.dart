@@ -41,12 +41,17 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final FileImportService _importService = FileImportService.instance;
+  final Map<String, GlobalKey> _selectionTileKeys = {};
 
   bool _isImporting = false;
   int _importProgress = 0;
   int _importTotal = 0;
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+  bool _isSlidingSelection = false;
+  bool? _slidingSelectionValue;
+  String? _slidingTabKey;
+  final Set<String> _slidingTouchedTileKeys = {};
 
   @override
   void initState() {
@@ -391,6 +396,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
   Widget _buildFileGrid(
       VaultedFileType? filterType, AsyncValue<List<VaultedFile>> filesAsync) {
+    final tabKey = _tabKeyFor(filterType);
+
     return filesAsync.when(
       loading: () => Center(
         child: CircularProgressIndicator(
@@ -477,7 +484,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             itemCount: files.length,
             itemBuilder: (context, index) => RepaintBoundary(
               key: ValueKey(files[index].id),
-              child: _buildFileItem(files[index]),
+              child: _buildFileItem(files[index], tabKey),
             ),
           ),
         );
@@ -485,10 +492,11 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     );
   }
 
-  Widget _buildFileItem(VaultedFile file) {
+  Widget _buildFileItem(VaultedFile file, String tabKey) {
     final selectedFiles = ref.watch(selectedFilesProvider);
     final isSelectionMode = ref.watch(isSelectionModeProvider);
     final isSelected = selectedFiles.contains(file.id);
+    final tileKey = _selectionTileKey(tabKey, file.id);
 
     return GestureDetector(
       onTap: () {
@@ -498,15 +506,16 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           _openFile(file);
         }
       },
-      onLongPress: () {
-        if (!isSelectionMode) {
-          _enterSelectionMode(file.id);
-        }
-      },
+      onLongPressStart: (_) => _startSlidingSelection(file.id, tabKey),
+      onLongPressMoveUpdate: (details) =>
+          _updateSlidingSelection(details.globalPosition),
+      onLongPressEnd: (_) => _stopSlidingSelection(),
+      onLongPressCancel: _stopSlidingSelection,
       child: Stack(
         fit: StackFit.expand,
         children: [
           Container(
+            key: _tileKeyFor(tileKey),
             decoration: BoxDecoration(
               color: context.backgroundSecondary,
               borderRadius: BorderRadius.circular(8),
@@ -660,6 +669,101 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         ],
       ),
     );
+  }
+
+  String _tabKeyFor(VaultedFileType? filterType) {
+    if (filterType == null) return 'all';
+
+    switch (filterType) {
+      case VaultedFileType.image:
+        return 'images';
+      case VaultedFileType.video:
+        return 'videos';
+      case VaultedFileType.song:
+        return 'songs';
+      case VaultedFileType.document:
+        return 'documents';
+      case VaultedFileType.other:
+        return 'other';
+    }
+  }
+
+  String _selectionTileKey(String tabKey, String fileId) => '$tabKey::$fileId';
+
+  GlobalKey _tileKeyFor(String tileKey) {
+    return _selectionTileKeys.putIfAbsent(tileKey, GlobalKey.new);
+  }
+
+  void _startSlidingSelection(String fileId, String tabKey) {
+    final selectedFiles = ref.read(selectedFilesProvider);
+    final shouldSelect = !selectedFiles.contains(fileId);
+    final tileKey = _selectionTileKey(tabKey, fileId);
+
+    setState(() {
+      _isSlidingSelection = true;
+      _slidingSelectionValue = shouldSelect;
+      _slidingTabKey = tabKey;
+      _slidingTouchedTileKeys
+        ..clear()
+        ..add(tileKey);
+    });
+
+    _setSelection(fileId, shouldSelect, keepSelectionMode: true);
+  }
+
+  void _updateSlidingSelection(Offset globalPosition) {
+    if (!_isSlidingSelection || _slidingSelectionValue == null) return;
+
+    final tileKey = _tileKeyAt(globalPosition, _slidingTabKey);
+    if (tileKey == null || _slidingTouchedTileKeys.contains(tileKey)) return;
+
+    final separatorIndex = tileKey.indexOf('::');
+    if (separatorIndex == -1) return;
+
+    final fileId = tileKey.substring(separatorIndex + 2);
+
+    setState(() {
+      _slidingTouchedTileKeys.add(tileKey);
+    });
+
+    _setSelection(fileId, _slidingSelectionValue!, keepSelectionMode: true);
+  }
+
+  void _stopSlidingSelection() {
+    if (!_isSlidingSelection) return;
+
+    setState(() {
+      _isSlidingSelection = false;
+      _slidingSelectionValue = null;
+      _slidingTabKey = null;
+      _slidingTouchedTileKeys.clear();
+    });
+
+    final selectedFiles = ref.read(selectedFilesProvider);
+    if (selectedFiles.isEmpty) {
+      ref.read(isSelectionModeProvider.notifier).state = false;
+    }
+  }
+
+  String? _tileKeyAt(Offset globalPosition, String? tabKey) {
+    if (tabKey == null) return null;
+
+    for (final entry in _selectionTileKeys.entries) {
+      if (!entry.key.startsWith('$tabKey::')) continue;
+
+      final context = entry.value.currentContext;
+      if (context == null) continue;
+
+      final renderObject = context.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) continue;
+
+      final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+      if (rect.contains(globalPosition)) {
+        return entry.key;
+      }
+    }
+
+    return null;
   }
 
   Widget _buildFileThumbnail(VaultedFile file) {
@@ -816,21 +920,22 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
 
   void _toggleSelection(String fileId) {
     final selectedFiles = ref.read(selectedFilesProvider);
-    if (selectedFiles.contains(fileId)) {
-      ref.read(selectedFilesProvider.notifier).state = Set.from(selectedFiles)
-        ..remove(fileId);
-      if (selectedFiles.length == 1) {
-        ref.read(isSelectionModeProvider.notifier).state = false;
-      }
-    } else {
-      ref.read(selectedFilesProvider.notifier).state = Set.from(selectedFiles)
-        ..add(fileId);
-    }
+    _setSelection(fileId, !selectedFiles.contains(fileId));
   }
 
-  void _enterSelectionMode(String fileId) {
-    ref.read(isSelectionModeProvider.notifier).state = true;
-    ref.read(selectedFilesProvider.notifier).state = {fileId};
+  void _setSelection(String fileId, bool isSelected,
+      {bool keepSelectionMode = false}) {
+    final selectedFiles = Set<String>.from(ref.read(selectedFilesProvider));
+
+    if (isSelected) {
+      selectedFiles.add(fileId);
+    } else {
+      selectedFiles.remove(fileId);
+    }
+
+    ref.read(selectedFilesProvider.notifier).state = selectedFiles;
+    ref.read(isSelectionModeProvider.notifier).state =
+        keepSelectionMode || selectedFiles.isNotEmpty;
   }
 
   void _exitSelectionMode() {

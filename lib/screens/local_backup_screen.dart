@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import '../models/vaulted_file.dart';
 import '../services/backup_service.dart';
 import '../themes/app_colors.dart';
 import '../utils/toast_utils.dart';
+import 'backup_file_selection_screen.dart';
 import 'folder_picker_screen.dart';
 
 /// One save target: label and a way to get its path (or null).
@@ -26,6 +28,8 @@ class LocalBackupScreen extends ConsumerStatefulWidget {
 class _LocalBackupScreenState extends ConsumerState<LocalBackupScreen> {
   final BackupService _backupService = BackupService.instance;
   bool _isBackingUp = false;
+  bool _backupSelectedFilesOnly = false;
+  List<VaultedFile> _selectedFiles = const [];
 
   static List<SaveLocation> get _saveLocations => [
         SaveLocation(
@@ -50,7 +54,46 @@ class _LocalBackupScreenState extends ConsumerState<LocalBackupScreen> {
         ),
       ];
 
+  Future<void> _chooseFilesForBackup() async {
+    final selectedFiles = await Navigator.of(context).push<List<VaultedFile>>(
+      MaterialPageRoute(
+        builder: (context) => BackupFileSelectionScreen(
+          initialSelection: _selectedFiles,
+        ),
+      ),
+    );
+
+    if (!mounted || selectedFiles == null) return;
+
+    setState(() {
+      _backupSelectedFilesOnly = true;
+      _selectedFiles = selectedFiles;
+    });
+  }
+
+  Future<bool> _ensureSelectedFiles() async {
+    if (!_backupSelectedFilesOnly) return true;
+    if (_selectedFiles.isNotEmpty) return true;
+
+    await _chooseFilesForBackup();
+    if (_selectedFiles.isNotEmpty) return true;
+
+    ToastUtils.showError('Select at least one file to backup');
+    return false;
+  }
+
+  String _selectedFilesSubtitle() {
+    if (_selectedFiles.isEmpty) {
+      return 'No files selected';
+    }
+    if (_selectedFiles.length == 1) {
+      return _selectedFiles.first.originalName;
+    }
+    return '${_selectedFiles.length} files selected';
+  }
+
   Future<void> _runBackupToPath(String destinationDirPath) async {
+    if (!await _ensureSelectedFiles()) return;
     if (_isBackingUp) return;
     setState(() => _isBackingUp = true);
 
@@ -79,7 +122,10 @@ class _LocalBackupScreenState extends ConsumerState<LocalBackupScreen> {
       ),
     );
 
-    final result = await _backupService.createBackup(destinationDirPath);
+    final result = await _backupService.createBackup(
+      destinationDirPath,
+      files: _backupSelectedFilesOnly ? _selectedFiles : null,
+    );
 
     if (mounted) Navigator.of(context).pop();
 
@@ -126,6 +172,64 @@ class _LocalBackupScreenState extends ConsumerState<LocalBackupScreen> {
           : ListView(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Files to include',
+                    style: TextStyle(
+                      fontFamily: 'ProductSans',
+                      fontSize: 14,
+                      color: context.textTertiary,
+                    ),
+                  ),
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All files'),
+                      selected: !_backupSelectedFilesOnly,
+                      onSelected: (_) {
+                        setState(() => _backupSelectedFilesOnly = false);
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('Selected files'),
+                      selected: _backupSelectedFilesOnly,
+                      onSelected: (_) {
+                        setState(() => _backupSelectedFilesOnly = true);
+                      },
+                    ),
+                  ],
+                ),
+                if (_backupSelectedFilesOnly)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.library_books_outlined,
+                        color: context.accentColor),
+                    title: Text(
+                      'Choose files',
+                      style: TextStyle(
+                        fontFamily: 'ProductSans',
+                        fontWeight: FontWeight.w500,
+                        color: context.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      _selectedFilesSubtitle(),
+                      style: TextStyle(
+                        fontFamily: 'ProductSans',
+                        fontSize: 12,
+                        color: context.textTertiary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing:
+                        Icon(Icons.chevron_right, color: context.textTertiary),
+                    onTap: _chooseFilesForBackup,
+                  ),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
