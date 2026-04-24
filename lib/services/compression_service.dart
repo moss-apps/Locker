@@ -10,6 +10,19 @@ class CompressionService {
   static const int _jpegQuality = 95;
 
   Future<String?> compressImage(String sourcePath) async {
+    final compressedBytes = await compressImageToBytes(sourcePath);
+    if (compressedBytes == null) return null;
+
+    final extension = sourcePath.split('.').last.toLowerCase();
+    final tempDir = await getTemporaryDirectory();
+    final compressedPath =
+        '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.$extension';
+    final compressedFile = File(compressedPath);
+    await compressedFile.writeAsBytes(compressedBytes);
+    return compressedPath;
+  }
+
+  Future<Uint8List?> compressImageToBytes(String sourcePath) async {
     try {
       final sourceFile = File(sourcePath);
       if (!await sourceFile.exists()) {
@@ -35,15 +48,9 @@ class CompressionService {
         return null;
       }
 
-      final tempDir = await getTemporaryDirectory();
-      final compressedPath =
-          '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.$extension';
-      final compressedFile = File(compressedPath);
-      await compressedFile.writeAsBytes(compressedBytes);
-
       debugPrint(
           '[Compression] Compressed image: $sourcePath (${bytes.length} -> ${compressedBytes.length} bytes)');
-      return compressedPath;
+      return compressedBytes;
     } catch (e) {
       debugPrint('[Compression] Error compressing image: $e');
       return null;

@@ -130,6 +130,7 @@ class FileImportService {
     bool deleteOriginals = true,
     Function(int current, int total, {int currentSize, int totalSize})?
         onProgress,
+    Function(FileProgressInfo)? onFileProgress,
   }) async {
     if (assets.isEmpty) {
       return ImportResult(
@@ -152,25 +153,7 @@ class FileImportService {
 
       final filesToVault = <FileToVault>[];
       final validAssets = <AssetEntity>[];
-      int processed = 0;
-      int totalSize = 0;
-      int processedSize = 0;
-
-      // First pass: get file sizes by getting the file and checking length
-      // This is async but faster than processing the full files
-      for (final asset in assets) {
-        try {
-          final file = await asset.file;
-          if (file != null) {
-            final length = await file.length();
-            totalSize += length;
-          }
-        } catch (e) {
-          debugPrint('[FileImport] Could not get size for asset: $e');
-        }
-      }
-
-      debugPrint('[FileImport] Total size to import: $totalSize bytes');
+      final fileSizesByPath = <String, int>{};
 
       for (final asset in assets) {
         try {
@@ -186,12 +169,8 @@ class FileImportService {
           final fileName =
               asset.title ?? 'unknown_${DateTime.now().millisecondsSinceEpoch}';
 
-          // Get file size for progress tracking
-          try {
-            processedSize += await file.length();
-          } catch (e) {
-            debugPrint('[FileImport] Could not get file size: $e');
-          }
+          final fileSize = await file.length();
+          fileSizesByPath[filePath] = fileSize;
 
           // Determine file type
           VaultedFileType type;
@@ -216,12 +195,8 @@ class FileImportService {
           ));
           validAssets.add(asset);
 
-          processed++;
-          onProgress?.call(processed, assets.length,
-              currentSize: processedSize, totalSize: processedSize);
-
           debugPrint(
-              '[FileImport] Prepared asset for import: $fileName (path: $filePath)');
+              '[FileImport] Prepared asset for import: $fileName (path: $filePath, size: $fileSize)');
         } catch (e) {
           debugPrint('[FileImport] Error processing asset ${asset.title}: $e');
         }
@@ -269,6 +244,15 @@ class FileImportService {
         );
       }
 
+      final totalSize = filesToImport.fold<int>(
+        0,
+        (sum, file) => sum + (fileSizesByPath[file.sourcePath] ?? 0),
+      );
+
+      debugPrint('[FileImport] Total size to import: $totalSize bytes');
+      onProgress?.call(0, filesToImport.length,
+          currentSize: 0, totalSize: totalSize);
+
       // Add to vault (copy files to vault directory)
       final imported = await _vaultService.addFiles(
         files: filesToImport,
@@ -281,6 +265,7 @@ class FileImportService {
           onProgress?.call(current, total,
               currentSize: estimatedSize, totalSize: totalSize);
         },
+        onFileProgress: onFileProgress,
       );
 
       debugPrint('[FileImport] Imported ${imported.length} files to vault');
@@ -338,7 +323,8 @@ class FileImportService {
   Future<UnhideResult> unhideFiles({
     required List<String> fileIds,
     bool removeFromVault = true,
-    Function(int current, int total)? onProgress,
+    Function(int current, int total, {int currentSize, int totalSize})?
+        onProgress,
   }) async {
     if (fileIds.isEmpty) {
       return UnhideResult(
@@ -359,6 +345,30 @@ class FileImportService {
             '[FileImport] Warning: All Files Access not granted. Unhiding may fail.');
       }
 
+      // First pass: get all vaulted files and calculate total size
+      final vaultedFiles = <MapEntry<String, VaultedFile>>[];
+      int totalSize = 0;
+      int processedSize = 0;
+
+      for (final fileId in fileIds) {
+        try {
+          final vaultedFile = await _vaultService.getFileById(
+            fileId,
+            isDecoy: isDecoy,
+          );
+          if (vaultedFile != null) {
+            vaultedFiles.add(MapEntry(fileId, vaultedFile));
+            totalSize += vaultedFile.fileSize;
+          }
+        } catch (e) {
+          debugPrint('[FileImport] Could not get file info for $fileId: $e');
+        }
+      }
+
+      debugPrint('[FileImport] Total size to unhide: $totalSize bytes');
+      onProgress?.call(0, vaultedFiles.length,
+          currentSize: 0, totalSize: totalSize);
+
       // Get the destination directory (DCIM/Restored)
       final dcimDir = Directory('/storage/emulated/0/DCIM/Restored');
       if (!await dcimDir.exists()) {
@@ -369,19 +379,12 @@ class FileImportService {
       int errorCount = 0;
       final List<String> restoredPaths = [];
 
-      for (int i = 0; i < fileIds.length; i++) {
+      for (int i = 0; i < vaultedFiles.length; i++) {
         try {
-          final fileId = fileIds[i];
-          final vaultedFile = await _vaultService.getFileById(
-            fileId,
-            isDecoy: isDecoy,
-          );
-
-          if (vaultedFile == null) {
-            debugPrint('[FileImport] File not found in vault: $fileId');
-            errorCount++;
-            continue;
-          }
+          final entry = vaultedFiles[i];
+          final fileId = entry.key;
+          final vaultedFile = entry.value;
+          final bytesBeforeFile = processedSize;
 
           // Determine destination path with original filename
           String destinationPath =
@@ -403,9 +406,19 @@ class FileImportService {
             fileId,
             destinationPath,
             isDecoy: isDecoy,
+            onProgress: (fileProcessed, fileTotal) {
+              final safeTotal =
+                  fileTotal > 0 ? fileTotal : vaultedFile.fileSize;
+              final clampedProcessed =
+                  fileProcessed.clamp(0, safeTotal).toInt();
+              onProgress?.call(i + 1, vaultedFiles.length,
+                  currentSize: bytesBeforeFile + clampedProcessed,
+                  totalSize: totalSize);
+            },
           );
 
           if (exportedFile != null && await exportedFile.exists()) {
+            processedSize = bytesBeforeFile + vaultedFile.fileSize;
             debugPrint('[FileImport] Exported file to: $destinationPath');
 
             // Notify MediaStore to scan the file (without creating duplicates)
@@ -415,11 +428,7 @@ class FileImportService {
             successCount++;
 
             // Remove from vault if requested
-            // IMPORTANT: Only remove after successful export AND media scan
             if (removeFromVault) {
-              // Small delay to ensure media scan completes
-              await Future.delayed(const Duration(milliseconds: 500));
-
               await _vaultService.removeFile(fileId, isDecoy: isDecoy);
               debugPrint('[FileImport] Removed file from vault: $fileId');
             }
@@ -429,7 +438,8 @@ class FileImportService {
             errorCount++;
           }
 
-          onProgress?.call(i + 1, fileIds.length);
+          onProgress?.call(i + 1, vaultedFiles.length,
+              currentSize: processedSize, totalSize: totalSize);
         } catch (e) {
           debugPrint('[FileImport] Error unhiding file: $e');
           errorCount++;
@@ -1469,42 +1479,31 @@ class FileImportService {
 
       debugPrint('[FileImport] Looking for files matching: $fileNameSet');
 
-      // Search through all albums
+      // Search through all albums - fetch all assets per album at once
       int totalAssetsSearched = 0;
       for (final album in albums) {
         final count = await album.assetCountAsync;
         if (count == 0) continue;
 
-        // Get assets in batches
-        const batchSize = 100;
-        for (int i = 0; i < count; i += batchSize) {
-          final assets = await album.getAssetListRange(
-            start: i,
-            end: (i + batchSize).clamp(0, count),
-          );
+        final assets = await album.getAssetListRange(start: 0, end: count);
+        totalAssetsSearched += assets.length;
 
-          totalAssetsSearched += assets.length;
+        for (final asset in assets) {
+          final title = asset.title?.toLowerCase() ?? '';
+          final titleNoExt = title.contains('.')
+              ? title.substring(0, title.lastIndexOf('.'))
+              : title;
+          if (fileNameSet.contains(title) || fileNameSet.contains(titleNoExt)) {
+            debugPrint(
+                '[FileImport] Found matching asset: ${asset.title} (id: ${asset.id})');
+            matchingAssets.add(asset);
+            fileNameSet.remove(title);
+            fileNameSet.remove(titleNoExt);
 
-          for (final asset in assets) {
-            final title = asset.title?.toLowerCase() ?? '';
-            final titleNoExt = title.contains('.')
-                ? title.substring(0, title.lastIndexOf('.'))
-                : title;
-            if (fileNameSet.contains(title) ||
-                fileNameSet.contains(titleNoExt)) {
+            if (fileNameSet.isEmpty) {
               debugPrint(
-                  '[FileImport] Found matching asset: ${asset.title} (id: ${asset.id})');
-              matchingAssets.add(asset);
-              // Remove from set to avoid duplicates
-              fileNameSet.remove(title);
-              fileNameSet.remove(titleNoExt);
-
-              // If we found all files, return early
-              if (fileNameSet.isEmpty) {
-                debugPrint(
-                    '[FileImport] Found all ${matchingAssets.length} matching assets');
-                return matchingAssets;
-              }
+                  '[FileImport] Found all ${matchingAssets.length} matching assets');
+              return matchingAssets;
             }
           }
         }

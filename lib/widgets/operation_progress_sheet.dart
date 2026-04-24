@@ -13,6 +13,7 @@ class OperationProgressSheet extends StatefulWidget {
   final String statusMessage;
   final bool isProcessing;
   final bool isComplete;
+  final bool isEncrypting;
   final VoidCallback? onCancel;
 
   const OperationProgressSheet({
@@ -26,6 +27,7 @@ class OperationProgressSheet extends StatefulWidget {
     required this.statusMessage,
     required this.isProcessing,
     this.isComplete = false,
+    this.isEncrypting = false,
     this.onCancel,
   });
 
@@ -36,12 +38,13 @@ class OperationProgressSheet extends StatefulWidget {
 class _OperationProgressSheetState extends State<OperationProgressSheet> {
   @override
   Widget build(BuildContext context) {
-    final progress = widget.totalFiles > 0
+    final fileProgress = widget.totalFiles > 0
         ? (widget.currentFile / widget.totalFiles).clamp(0.0, 1.0)
         : 0.0;
     final sizeProgress = widget.totalSizeBytes > 0
         ? (widget.processedSizeBytes / widget.totalSizeBytes).clamp(0.0, 1.0)
         : 0.0;
+    final progress = widget.totalSizeBytes > 0 ? sizeProgress : fileProgress;
 
     return Container(
       decoration: BoxDecoration(
@@ -120,8 +123,10 @@ class _OperationProgressSheetState extends State<OperationProgressSheet> {
 
     switch (widget.operationType) {
       case OperationType.hide:
-        icon = Icons.lock_outline;
-        color = AppColors.accent;
+        icon = widget.isEncrypting
+            ? Icons.enhanced_encryption_outlined
+            : Icons.lock_outline;
+        color = widget.isEncrypting ? Colors.orange : AppColors.accent;
         break;
       case OperationType.unhide:
         icon = Icons.lock_open_outlined;
@@ -175,7 +180,11 @@ class _OperationProgressSheetState extends State<OperationProgressSheet> {
     if (widget.isComplete) {
       return 'Completed successfully';
     }
-    return '${widget.currentFile} of ${widget.totalFiles} files';
+    final base = '${widget.currentFile} of ${widget.totalFiles} files';
+    if (widget.isEncrypting) {
+      return '$base - Encrypting...';
+    }
+    return base;
   }
 
   Widget _buildProgressSection(double progress, double sizeProgress) {
@@ -492,6 +501,7 @@ class OperationProgressState {
   final String statusMessage;
   final bool isProcessing;
   final bool isComplete;
+  final bool isEncrypting;
 
   const OperationProgressState({
     this.totalFiles = 0,
@@ -502,6 +512,7 @@ class OperationProgressState {
     this.statusMessage = 'Preparing...',
     this.isProcessing = true,
     this.isComplete = false,
+    this.isEncrypting = false,
   });
 
   OperationProgressState copyWith({
@@ -513,6 +524,7 @@ class OperationProgressState {
     String? statusMessage,
     bool? isProcessing,
     bool? isComplete,
+    bool? isEncrypting,
   }) {
     return OperationProgressState(
       totalFiles: totalFiles ?? this.totalFiles,
@@ -523,6 +535,7 @@ class OperationProgressState {
       statusMessage: statusMessage ?? this.statusMessage,
       isProcessing: isProcessing ?? this.isProcessing,
       isComplete: isComplete ?? this.isComplete,
+      isEncrypting: isEncrypting ?? this.isEncrypting,
     );
   }
 }
@@ -594,6 +607,7 @@ class _OperationProgressSheetWrapperState
       statusMessage: _state.statusMessage,
       isProcessing: _state.isProcessing,
       isComplete: _state.isComplete,
+      isEncrypting: _state.isEncrypting,
       onCancel: () {
         Navigator.pop(context);
       },
