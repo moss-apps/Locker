@@ -263,8 +263,7 @@ class EncryptionService {
       final data = await sourceFile.readAsBytes();
       onProgress?.call(1, 3);
 
-      final result =
-          await encryptData(data, isDecoy: isDecoy);
+      final result = await encryptData(data, isDecoy: isDecoy);
       onProgress?.call(2, 3);
 
       if (!result.success || result.data == null) {
@@ -375,25 +374,31 @@ class EncryptionService {
     Uint8List data,
     String destinationPath, {
     bool isDecoy = false,
+    Function(int bytesProcessed, int totalBytes)? onProgress,
   }) async {
     try {
       final key = isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
       final iv = generateIV();
+      final totalBytes = data.length;
+
+      onProgress?.call(0, totalBytes);
 
       final ctr = CTRStreamCipher(AESEngine())
         ..init(true, ParametersWithIV<KeyParameter>(KeyParameter(key), iv));
 
       final encrypted = ctr.process(data);
 
+      onProgress?.call(totalBytes, totalBytes);
+
       final header = Uint8List(8);
       header[0] = 0x4C;
       header[1] = 0x4B;
       header[2] = 0x52;
       header[3] = 0x53;
-      header[4] = (data.length & 0xFF);
-      header[5] = ((data.length >> 8) & 0xFF);
-      header[6] = ((data.length >> 16) & 0xFF);
-      header[7] = ((data.length >> 24) & 0xFF);
+      header[4] = (totalBytes & 0xFF);
+      header[5] = ((totalBytes >> 8) & 0xFF);
+      header[6] = ((totalBytes >> 16) & 0xFF);
+      header[7] = ((totalBytes >> 24) & 0xFF);
 
       final destFile = File(destinationPath);
       final sink = destFile.openWrite();
@@ -408,7 +413,7 @@ class EncryptionService {
         success: true,
         encryptedPath: destinationPath,
         iv: base64Encode(iv),
-        originalSize: data.length,
+        originalSize: totalBytes,
         encryptedSize: encryptedSize,
       );
     } catch (e) {
@@ -604,6 +609,8 @@ class EncryptionService {
       final totalBytes = encryptedSize - 8; // Subtract header size
       int bytesProcessed = 0;
 
+      onProgress?.call(0, totalBytes);
+
       // Read encrypted data after header - use chunked stream
       final inputStream = _createChunkedStream(encryptedFile.openRead(8));
       await for (final chunk in inputStream) {
@@ -613,6 +620,8 @@ class EncryptionService {
         bytesProcessed += chunk.length;
         onProgress?.call(bytesProcessed, totalBytes);
       }
+
+      onProgress?.call(totalBytes, totalBytes);
 
       await sink.flush();
       await sink.close();
@@ -1083,6 +1092,8 @@ class EncryptionService {
       final iv = generateIV();
       final totalBytes = await sourceFile.length();
 
+      onProgress?.call(0, totalBytes);
+
       final result = await compute(
         _encryptFileIsolate,
         _IsolateEncryptParams(
@@ -1093,6 +1104,8 @@ class EncryptionService {
           useGcm: useGcm,
         ),
       );
+
+      onProgress?.call(totalBytes, totalBytes);
 
       if (result.success) {
         return FileEncryptionResult(
