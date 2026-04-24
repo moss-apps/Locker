@@ -15,6 +15,9 @@ class FileProgressInfo {
   final String fileName;
   final int fileSize;
   final String status;
+  final bool isEncrypting;
+  final int encryptedBytes;
+  final int totalBytes;
 
   const FileProgressInfo({
     required this.current,
@@ -22,6 +25,9 @@ class FileProgressInfo {
     required this.fileName,
     required this.fileSize,
     required this.status,
+    this.isEncrypting = false,
+    this.encryptedBytes = 0,
+    this.totalBytes = 0,
   });
 }
 
@@ -345,9 +351,25 @@ class VaultService {
   }
 
   /// Stream copy a file in chunks (memory-efficient for large files)
-  Future<void> _streamCopyFile(File source, File destination) async {
+  Future<void> _streamCopyFile(
+    File source,
+    File destination, {
+    Function(int processed, int total)? onProgress,
+  }) async {
+    final totalBytes = await source.length();
+    var processedBytes = 0;
     final sink = destination.openWrite();
-    await source.openRead().pipe(sink);
+
+    onProgress?.call(0, totalBytes);
+
+    await for (final chunk in source.openRead()) {
+      sink.add(chunk);
+      processedBytes += chunk.length;
+      onProgress?.call(processedBytes, totalBytes);
+    }
+
+    await sink.flush();
+    await sink.close();
   }
 
   Future<void> _deleteFileIfExists(String path) async {
@@ -428,6 +450,7 @@ class VaultService {
     final results = <VaultedFile>[];
 
     int completed = 0;
+    final shouldEncrypt = encrypt || _cachedSettings?.encryptionEnabled == true;
 
     for (int start = 0;
         start < files.length;
@@ -453,7 +476,9 @@ class VaultService {
             total: files.length,
             fileName: entry.file.originalName,
             fileSize: fileSize,
-            status: 'Processing...',
+            status: shouldEncrypt ? 'Encrypting 0%...' : 'Processing...',
+            isEncrypting: shouldEncrypt,
+            totalBytes: shouldEncrypt ? fileSize : 0,
           ));
 
           final prepared = await _prepareVaultAddition(
@@ -463,6 +488,23 @@ class VaultService {
             mimeType: entry.file.mimeType,
             encrypt: encrypt,
             isDecoy: isDecoy,
+            onEncryptionProgress: shouldEncrypt
+                ? (processed, total) {
+                    final pct = total > 0
+                        ? (processed / total * 100).toStringAsFixed(0)
+                        : '0';
+                    onFileProgress?.call(FileProgressInfo(
+                      current: entry.index + 1,
+                      total: files.length,
+                      fileName: entry.file.originalName,
+                      fileSize: fileSize,
+                      status: 'Encrypting $pct%...',
+                      isEncrypting: true,
+                      encryptedBytes: processed,
+                      totalBytes: total,
+                    ));
+                  }
+                : null,
           );
 
           return _BatchPreparationResult(
@@ -492,6 +534,7 @@ class VaultService {
           fileName: preparedResult.file.originalName,
           fileSize: preparedResult.fileSize,
           status: preparedResult.prepared != null ? 'Complete' : 'Failed',
+          isEncrypting: false,
         ));
       }
     }
@@ -506,6 +549,7 @@ class VaultService {
     required String mimeType,
     required bool encrypt,
     required bool isDecoy,
+    Function(int processed, int total)? onEncryptionProgress,
     List<String>? tags,
     List<String>? albumIds,
   }) async {
@@ -525,8 +569,8 @@ class VaultService {
 
       if (_cachedSettings?.compressionEnabled == true) {
         if (type == VaultedFileType.image) {
-          final bytes =
-              await CompressionService.instance.compressImageToBytes(sourcePath);
+          final bytes = await CompressionService.instance
+              .compressImageToBytes(sourcePath);
           if (bytes != null) {
             compressedImageBytes = bytes;
             debugPrint(
@@ -559,12 +603,16 @@ class VaultService {
         fileSize = compressedImageBytes.length;
 
         if (shouldEncrypt) {
-          final encResult =
-              await _encryptionService.encryptBytesStreamed(
+          onEncryptionProgress?.call(0, fileSize);
+          final encResult = await _encryptionService.encryptBytesStreamed(
             compressedImageBytes,
             vaultPath,
             isDecoy: isDecoy,
+            onProgress: (processed, total) {
+              onEncryptionProgress?.call(processed, total);
+            },
           );
+          onEncryptionProgress?.call(fileSize, fileSize);
 
           if (!encResult.success) {
             debugPrint('Encryption failed: ${encResult.error}');
@@ -587,18 +635,29 @@ class VaultService {
         fileSize = await sourceFileForProcessing.length();
 
         if (shouldEncrypt) {
-          final encResult = fileSize >= _largeFileIsolateThresholdBytes
+          onEncryptionProgress?.call(0, fileSize);
+          final useIsolateEncryption =
+              fileSize >= _largeFileIsolateThresholdBytes &&
+                  onEncryptionProgress == null;
+          final encResult = useIsolateEncryption
               ? await _encryptionService.encryptFileInIsolate(
                   sourcePathToUse,
                   vaultPath,
                   isDecoy: isDecoy,
                   useGcm: false,
+                  onProgress: (processed, total) {
+                    onEncryptionProgress?.call(processed, total);
+                  },
                 )
               : await _encryptionService.encryptFileStreamed(
                   sourcePathToUse,
                   vaultPath,
                   isDecoy: isDecoy,
+                  onProgress: (processed, total) {
+                    onEncryptionProgress?.call(processed, total);
+                  },
                 );
+          onEncryptionProgress?.call(fileSize, fileSize);
 
           if (!encResult.success) {
             debugPrint('Encryption failed: ${encResult.error}');
@@ -1369,6 +1428,7 @@ class VaultService {
     String fileId,
     String destinationPath, {
     bool isDecoy = false,
+    Function(int processed, int total)? onProgress,
   }) async {
     try {
       final vaultedFile = await getFileById(fileId, isDecoy: isDecoy);
@@ -1402,6 +1462,7 @@ class VaultService {
               vaultedFile.vaultPath,
               destinationPath,
               vaultedFile.encryptionIv!,
+              onProgress: onProgress,
             );
           } else {
             // Legacy CBC file but large - still use regular method
@@ -1410,6 +1471,14 @@ class VaultService {
               vaultedFile.vaultPath,
               destinationPath,
               vaultedFile.encryptionIv!,
+              onProgress: onProgress == null
+                  ? null
+                  : (current, total) {
+                      final estimatedProcessed = total > 0
+                          ? (current / total * vaultedFile.fileSize).round()
+                          : 0;
+                      onProgress(estimatedProcessed, vaultedFile.fileSize);
+                    },
             );
           }
         } else {
@@ -1417,6 +1486,14 @@ class VaultService {
             vaultedFile.vaultPath,
             destinationPath,
             vaultedFile.encryptionIv!,
+            onProgress: onProgress == null
+                ? null
+                : (current, total) {
+                    final estimatedProcessed = total > 0
+                        ? (current / total * vaultedFile.fileSize).round()
+                        : 0;
+                    onProgress(estimatedProcessed, vaultedFile.fileSize);
+                  },
           );
         }
 
@@ -1426,12 +1503,13 @@ class VaultService {
         return null;
       }
 
-      // Non-encrypted file - use streaming copy for large files
-      if (isLargeFile) {
-        await _streamCopyFile(sourceFile, File(destinationPath));
-        return File(destinationPath);
-      }
-      return await sourceFile.copy(destinationPath);
+      // Non-encrypted file - stream the copy so we can report progress.
+      await _streamCopyFile(
+        sourceFile,
+        File(destinationPath),
+        onProgress: onProgress,
+      );
+      return File(destinationPath);
     } catch (e) {
       debugPrint('Error exporting file: $e');
       return null;
