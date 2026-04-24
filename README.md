@@ -50,6 +50,7 @@ Locker is a secure, private media vault application built with Flutter for Andro
 
 - **Image Viewer**: Full-screen image viewing with pinch-to-zoom and slideshow mode
 - **Video Player**: Built-in video player with playback controls, speed adjustment, and loop options
+- **Song Player**: Built-in audio playback with external app handoff support
 - **Document Viewer**: Native PDF rendering and Office document conversion for viewing
 - **File Export**: Export files to Downloads folder or open with external applications
 - **Performance Overlay**: Real-time display of FPS and performance metrics
@@ -501,6 +502,7 @@ Built with the following open-source libraries:
 Additional documentation available:
 
 - [Architecture Diagram](docs/architecture_media.md) - Detailed system architecture design covering compression, encryption, and file operations
+- [Flick Integration Guide](docs/flick_integration.md) - Contract and implementation notes for making Flick a first-class Locker playback companion
 
 ---
 

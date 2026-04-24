@@ -23,6 +23,7 @@ import 'favorites_screen.dart';
 import 'tags_screen.dart';
 import 'media_viewer_screen.dart';
 import 'document_viewer_screen.dart';
+import 'song_player_screen.dart';
 import '../widgets/permission_warning_banner.dart';
 import 'media_picker_screen.dart';
 import 'document_picker_screen.dart';
@@ -59,7 +60,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _initializeVault();
   }
 
@@ -100,6 +101,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 _buildFileGrid(null, filesAsync),
                 _buildFileGrid(VaultedFileType.image, filesAsync),
                 _buildFileGrid(VaultedFileType.video, filesAsync),
+                _buildFileGrid(VaultedFileType.song, filesAsync),
                 _buildFileGrid(VaultedFileType.document, filesAsync),
               ],
             ),
@@ -373,6 +375,17 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const Icon(Icons.music_note_outlined, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                    'Songs (${files.where((f) => f.type == VaultedFileType.song).length})'),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 const Icon(Icons.description_outlined, size: 18),
                 const SizedBox(width: 6),
                 Text(
@@ -629,8 +642,8 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
                 ),
               ),
             ),
-          // File type badge for documents
-          if (file.isDocument)
+          // File type badge for non-visual files
+          if (file.isDocument || file.isSong)
             Positioned(
               bottom: 8,
               left: 8,
@@ -731,6 +744,10 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
       case VaultedFileType.video:
         icon = Icons.videocam;
         color = Colors.red;
+        break;
+      case VaultedFileType.song:
+        icon = Icons.music_note;
+        color = Colors.purple;
         break;
       case VaultedFileType.document:
         icon = _getDocumentIcon(file.extension);
@@ -853,6 +870,13 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
             files: viewerFiles,
             initialIndex: initialIndex,
           ),
+        ),
+      );
+    } else if (file.isSong) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SongPlayerScreen(file: file),
         ),
       );
     } else if (file.isDocument) {
@@ -1344,6 +1368,11 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
           subtitle = 'Import videos from gallery or camera';
           icon = Icons.videocam_outlined;
           break;
+        case VaultedFileType.song:
+          title = 'No songs yet';
+          subtitle = 'Import MP3, WAV, FLAC, and more';
+          icon = Icons.music_note_outlined;
+          break;
         case VaultedFileType.document:
           title = 'No documents yet';
           subtitle = 'Import PDFs, Word docs, and more';
@@ -1764,6 +1793,7 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
         onImportMedia: _importMediaFromGallery,
         onCapturePhoto: _capturePhoto,
         onRecordVideo: _recordVideo,
+        onImportSongs: _importSongs,
         onImportDocuments: _importDocuments,
         onImportAnyFiles: _importAnyFiles,
       ),
@@ -3500,6 +3530,59 @@ class _GalleryVaultScreenState extends ConsumerState<GalleryVaultScreen>
     }
   }
 
+  Future<void> _importSongs() async {
+    Navigator.pop(context);
+
+    final selectedSongs = await Navigator.push<List<DocumentFile>?>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const DocumentPickerScreen(
+          title: 'Select Songs to Hide',
+          allowedExtensions: supportedAudioExtensions,
+          itemLabel: 'song',
+          itemLabelPlural: 'songs',
+          stateIcon: Icons.music_note_outlined,
+        ),
+      ),
+    );
+
+    if (selectedSongs == null || selectedSongs.isEmpty) {
+      ToastUtils.showInfo('No songs selected');
+      return;
+    }
+
+    setState(() {
+      _isImporting = true;
+      _importProgress = 0;
+      _importTotal = selectedSongs.length;
+    });
+
+    final result = await _importService.importFromDocumentFiles(
+      filePaths: selectedSongs.map((song) => song.path).toList(),
+      deleteOriginals: true,
+      onProgress: (current, total) {
+        setState(() {
+          _importProgress = current;
+          _importTotal = total;
+        });
+      },
+    );
+
+    setState(() => _isImporting = false);
+
+    if (result.success && result.importedCount > 0) {
+      final msg = result.deletedOriginals
+          ? 'Imported and hidden ${result.importedCount} song(s)'
+          : 'Imported ${result.importedCount} song(s)';
+      ToastUtils.showSuccess(msg);
+      ref.read(vaultNotifierProvider.notifier).loadFiles();
+    } else if (!result.success) {
+      ToastUtils.showError(result.error ?? 'Import failed');
+    } else {
+      ToastUtils.showInfo('No songs imported');
+    }
+  }
+
   Future<void> _importAnyFiles() async {
     Navigator.pop(context);
     setState(() {
@@ -3541,6 +3624,7 @@ class _ImportOptionsSheet extends StatelessWidget {
   final VoidCallback onImportMedia;
   final VoidCallback onCapturePhoto;
   final VoidCallback onRecordVideo;
+  final VoidCallback onImportSongs;
   final VoidCallback onImportDocuments;
   final VoidCallback onImportAnyFiles;
 
@@ -3550,6 +3634,7 @@ class _ImportOptionsSheet extends StatelessWidget {
     required this.onImportMedia,
     required this.onCapturePhoto,
     required this.onRecordVideo,
+    required this.onImportSongs,
     required this.onImportDocuments,
     required this.onImportAnyFiles,
   });
@@ -3662,6 +3747,15 @@ class _ImportOptionsSheet extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _ImportOptionTile(
+                        icon: Icons.music_note_outlined,
+                        label: 'Songs',
+                        color: Colors.purple,
+                        onTap: onImportSongs,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ImportOptionTile(
                         icon: Icons.description_outlined,
                         label: 'Documents',
                         color: Colors.green,
@@ -3669,9 +3763,14 @@ class _ImportOptionsSheet extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(child: SizedBox()),
-                    const SizedBox(width: 12),
-                    const Expanded(child: SizedBox()),
+                    Expanded(
+                      child: _ImportOptionTile(
+                        icon: Icons.folder_zip_outlined,
+                        label: 'Any Files',
+                        color: Colors.blueGrey,
+                        onTap: onImportAnyFiles,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),

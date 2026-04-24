@@ -12,6 +12,7 @@ import '../utils/toast_utils.dart';
 import '../utils/responsive_utils.dart';
 import 'media_viewer_screen.dart';
 import 'document_viewer_screen.dart';
+import 'song_player_screen.dart';
 
 /// Screen for viewing favorite files
 class FavoritesScreen extends ConsumerStatefulWidget {
@@ -264,8 +265,8 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                 ),
               ),
             ),
-          // Document name
-          if (file.isDocument)
+          // Non-visual file name
+          if (file.isDocument || file.isSong)
             Positioned(
               bottom: 8,
               left: 8,
@@ -347,6 +348,10 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
       case VaultedFileType.video:
         icon = Icons.videocam;
         color = Colors.red;
+        break;
+      case VaultedFileType.song:
+        icon = Icons.music_note;
+        color = Colors.purple;
         break;
       case VaultedFileType.document:
         icon = Icons.description;
@@ -471,6 +476,13 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
             files: viewerFiles,
             initialIndex: initialIndex >= 0 ? initialIndex : 0,
           ),
+        ),
+      );
+    } else if (file.isSong) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SongPlayerScreen(file: file),
         ),
       );
     } else if (file.isDocument) {

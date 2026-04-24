@@ -4,6 +4,7 @@ import 'dart:convert';
 enum VaultedFileType {
   image,
   video,
+  song,
   document,
   other;
 
@@ -13,6 +14,8 @@ enum VaultedFileType {
         return 'Image';
       case VaultedFileType.video:
         return 'Video';
+      case VaultedFileType.song:
+        return 'Song';
       case VaultedFileType.document:
         return 'Document';
       case VaultedFileType.other:
@@ -26,6 +29,7 @@ enum VaultedFileType {
         return 'picture_icon.png';
       case VaultedFileType.video:
         return 'video_icon.png';
+      case VaultedFileType.song:
       case VaultedFileType.document:
       case VaultedFileType.other:
         return 'otherfiles_icon.png';
@@ -38,6 +42,9 @@ enum VaultedFileType {
         return VaultedFileType.image;
       case 'video':
         return VaultedFileType.video;
+      case 'song':
+      case 'audio':
+        return VaultedFileType.song;
       case 'document':
         return VaultedFileType.document;
       default:
@@ -310,6 +317,9 @@ class VaultedFile {
   /// Check if file is a document
   bool get isDocument => type == VaultedFileType.document;
 
+  /// Check if file is a song
+  bool get isSong => type == VaultedFileType.song;
+
   /// Get tag count
   int get tagCount => tags.length;
 
@@ -389,6 +399,16 @@ const List<String> supportedDocumentExtensions = [
   'epub',
 ];
 
+/// Supported audio extensions
+const List<String> supportedAudioExtensions = [
+  'mp3',
+  'wav',
+  'flac',
+  'aac',
+  'ogg',
+  'm4a',
+];
+
 /// Get file type from extension
 VaultedFileType getFileTypeFromExtension(String extension) {
   final ext = extension.toLowerCase().replaceAll('.', '');
@@ -397,6 +417,8 @@ VaultedFileType getFileTypeFromExtension(String extension) {
     return VaultedFileType.image;
   } else if (supportedVideoExtensions.contains(ext)) {
     return VaultedFileType.video;
+  } else if (supportedAudioExtensions.contains(ext)) {
+    return VaultedFileType.song;
   } else if (supportedDocumentExtensions.contains(ext)) {
     return VaultedFileType.document;
   }
@@ -411,6 +433,8 @@ VaultedFileType getFileTypeFromMime(String mimeType) {
     return VaultedFileType.image;
   } else if (mime.startsWith('video/')) {
     return VaultedFileType.video;
+  } else if (mime.startsWith('audio/')) {
+    return VaultedFileType.song;
   } else if (mime.startsWith('application/pdf') ||
       mime.startsWith('application/msword') ||
       mime.startsWith('application/vnd.') ||

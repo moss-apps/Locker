@@ -43,6 +43,7 @@ dependencies:
   fluttertoast: ^9.0.0
   image: ^4.8.0
   image_picker: ^1.2.1
+  just_audio: ^0.10.5
   video_compress: ^3.1.4
   local_auth: ^3.0.0
   local_auth_android: ^2.0.3

@@ -37,6 +37,8 @@ class BackupService {
         return 'images';
       case VaultedFileType.video:
         return 'videos';
+      case VaultedFileType.song:
+        return 'songs';
       case VaultedFileType.document:
       case VaultedFileType.other:
         return 'documents';

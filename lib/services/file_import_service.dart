@@ -854,8 +854,7 @@ class FileImportService {
     }
   }
 
-  /// Import documents from file paths (from custom document picker)
-  /// This is the preferred method for the custom document picker
+  /// Import files from file paths selected in the custom picker.
   Future<ImportResult> importFromDocumentFiles({
     required List<String> filePaths,
     bool deleteOriginals = true,
@@ -887,11 +886,12 @@ class FileImportService {
 
           final fileName = path.split('/').last;
           final mimeType = lookupMimeType(path) ?? 'application/octet-stream';
+          final type = getFileTypeFromMime(mimeType);
 
           filesToVault.add(FileToVault(
             sourcePath: path,
             originalName: fileName,
-            type: VaultedFileType.document,
+            type: type,
             mimeType: mimeType,
           ));
 
@@ -900,7 +900,7 @@ class FileImportService {
           processed++;
           onProgress?.call(processed, filePaths.length);
 
-          debugPrint('[FileImport] Prepared document for import: $fileName');
+          debugPrint('[FileImport] Prepared file for import: $fileName');
         } catch (e) {
           debugPrint('[FileImport] Error processing document $path: $e');
         }
@@ -914,8 +914,7 @@ class FileImportService {
         );
       }
 
-      debugPrint(
-          '[FileImport] Adding ${filesToVault.length} documents to vault');
+      debugPrint('[FileImport] Adding ${filesToVault.length} files to vault');
 
       // Add to vault
       final imported = await _vaultService.addFiles(
@@ -925,7 +924,7 @@ class FileImportService {
         onProgress: onProgress,
       );
 
-      debugPrint('[FileImport] Imported ${imported.length} documents to vault');
+      debugPrint('[FileImport] Imported ${imported.length} files to vault');
 
       // Delete originals if requested
       bool deletedOriginals = false;
@@ -940,7 +939,7 @@ class FileImportService {
         success: true,
         importedFiles: imported,
         message:
-            'Imported ${imported.length} document(s)${deletedOriginals ? " and removed originals" : ""}',
+            'Imported ${imported.length} file(s)${deletedOriginals ? " and removed originals" : ""}',
         deletedOriginals: deletedOriginals,
       );
     } catch (e, stackTrace) {
@@ -948,7 +947,7 @@ class FileImportService {
       debugPrint('[FileImport] Stack trace: $stackTrace');
       return ImportResult(
         success: false,
-        error: 'Failed to import documents: $e',
+        error: 'Failed to import files: $e',
         importedFiles: [],
       );
     }
