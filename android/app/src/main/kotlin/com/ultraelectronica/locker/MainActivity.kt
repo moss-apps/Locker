@@ -47,7 +47,12 @@ class MainActivity: FlutterFragmentActivity() {
             }
         }
     }
-    
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
     private fun scanMediaFile(filePath: String, result: MethodChannel.Result) {
         try {
             val file = File(filePath)
