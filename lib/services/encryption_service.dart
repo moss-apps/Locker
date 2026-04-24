@@ -133,7 +133,7 @@ class EncryptionService {
     return cipher;
   }
 
-  Stream<List<int>> _createChunkedStream(Stream<List<int>> input) {
+  Stream<Uint8List> _createChunkedStream(Stream<List<int>> input) {
     return input.transform(_ChunkedStreamTransformer(_streamChunkSize));
   }
 
@@ -264,7 +264,7 @@ class EncryptionService {
       onProgress?.call(1, 3);
 
       final result =
-          await encryptData(Uint8List.fromList(data), isDecoy: isDecoy);
+          await encryptData(data, isDecoy: isDecoy);
       onProgress?.call(2, 3);
 
       if (!result.success || result.data == null) {
@@ -341,7 +341,7 @@ class EncryptionService {
 
       final inputStream = _createChunkedStream(sourceFile.openRead());
       await for (final chunk in inputStream) {
-        final encrypted = ctr.process(Uint8List.fromList(chunk));
+        final encrypted = ctr.process(chunk);
         sink.add(encrypted);
 
         bytesProcessed += chunk.length;
@@ -365,6 +365,107 @@ class EncryptionService {
       return FileEncryptionResult(
         success: false,
         error: 'File streaming encryption failed: $e',
+      );
+    }
+  }
+
+  /// Encrypt in-memory bytes using CTR streaming and write to file
+  /// Avoids temp file I/O when data is already in memory (e.g. compressed images)
+  Future<FileEncryptionResult> encryptBytesStreamed(
+    Uint8List data,
+    String destinationPath, {
+    bool isDecoy = false,
+  }) async {
+    try {
+      final key = isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
+      final iv = generateIV();
+
+      final ctr = CTRStreamCipher(AESEngine())
+        ..init(true, ParametersWithIV<KeyParameter>(KeyParameter(key), iv));
+
+      final encrypted = ctr.process(data);
+
+      final header = Uint8List(8);
+      header[0] = 0x4C;
+      header[1] = 0x4B;
+      header[2] = 0x52;
+      header[3] = 0x53;
+      header[4] = (data.length & 0xFF);
+      header[5] = ((data.length >> 8) & 0xFF);
+      header[6] = ((data.length >> 16) & 0xFF);
+      header[7] = ((data.length >> 24) & 0xFF);
+
+      final destFile = File(destinationPath);
+      final sink = destFile.openWrite();
+      sink.add(header);
+      sink.add(encrypted);
+      await sink.flush();
+      await sink.close();
+
+      final encryptedSize = await destFile.length();
+
+      return FileEncryptionResult(
+        success: true,
+        encryptedPath: destinationPath,
+        iv: base64Encode(iv),
+        originalSize: data.length,
+        encryptedSize: encryptedSize,
+      );
+    } catch (e) {
+      debugPrint('Bytes streaming encryption error: $e');
+      return FileEncryptionResult(
+        success: false,
+        error: 'Bytes streaming encryption failed: $e',
+      );
+    }
+  }
+
+  /// Encrypt in-memory bytes using GCM and write to file
+  Future<FileEncryptionResult> encryptBytesStreamedGcm(
+    Uint8List data,
+    String destinationPath, {
+    bool isDecoy = false,
+  }) async {
+    try {
+      final key = isDecoy ? await _ensureDecoyKey() : await _ensureMasterKey();
+      final iv = generateIV();
+
+      final gcm = GCMBlockCipher(AESEngine())
+        ..init(true, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
+
+      final encrypted = gcm.process(data);
+
+      final header = Uint8List(8);
+      header[0] = 0x4C;
+      header[1] = 0x4B;
+      header[2] = 0x52;
+      header[3] = 0x47;
+      header[4] = (data.length & 0xFF);
+      header[5] = ((data.length >> 8) & 0xFF);
+      header[6] = ((data.length >> 16) & 0xFF);
+      header[7] = ((data.length >> 24) & 0xFF);
+
+      final destFile = File(destinationPath);
+      final sink = destFile.openWrite();
+      sink.add(header);
+      sink.add(encrypted);
+      await sink.flush();
+      await sink.close();
+
+      final encryptedSize = await destFile.length();
+
+      return FileEncryptionResult(
+        success: true,
+        encryptedPath: destinationPath,
+        iv: base64Encode(iv),
+        originalSize: data.length,
+        encryptedSize: encryptedSize,
+      );
+    } catch (e) {
+      debugPrint('Bytes GCM streaming encryption error: $e');
+      return FileEncryptionResult(
+        success: false,
+        error: 'Bytes GCM streaming encryption failed: $e',
       );
     }
   }
@@ -416,7 +517,7 @@ class EncryptionService {
         final encryptedData = await encryptedFile.readAsBytes();
 
         final result = await decryptData(
-          Uint8List.fromList(encryptedData),
+          encryptedData,
           ivBase64,
           isDecoy: isDecoy,
         );
@@ -506,7 +607,7 @@ class EncryptionService {
       // Read encrypted data after header - use chunked stream
       final inputStream = _createChunkedStream(encryptedFile.openRead(8));
       await for (final chunk in inputStream) {
-        final decrypted = ctr.process(Uint8List.fromList(chunk));
+        final decrypted = ctr.process(chunk);
         sink.add(decrypted);
 
         bytesProcessed += chunk.length;
@@ -572,7 +673,7 @@ class EncryptionService {
         final decryptedBytes = <int>[];
 
         await for (final chunk in inputStream) {
-          final decrypted = ctr.process(Uint8List.fromList(chunk));
+          final decrypted = ctr.process(chunk);
           decryptedBytes.addAll(decrypted);
         }
 
@@ -731,7 +832,7 @@ class EncryptionService {
       onProgress?.call(1, 3);
 
       final result = await encryptDataGcm(
-        Uint8List.fromList(data),
+        data,
         isDecoy: isDecoy,
       );
       onProgress?.call(2, 3);
@@ -821,7 +922,7 @@ class EncryptionService {
       onProgress?.call(1, 2);
 
       final result = await decryptDataGcm(
-        Uint8List.fromList(encryptedData),
+        encryptedData,
         ivBase64,
         isDecoy: isDecoy,
       );
@@ -893,7 +994,7 @@ class EncryptionService {
       final inputStream = _createChunkedStream(sourceFile.openRead());
 
       await for (final chunk in inputStream) {
-        final encrypted = gcm.process(Uint8List.fromList(chunk));
+        final encrypted = gcm.process(chunk);
         sink.add(encrypted);
 
         bytesProcessed += chunk.length;
@@ -946,7 +1047,7 @@ class EncryptionService {
       final encryptedData = await raf.read(await encryptedFile.length() - 8);
       await raf.close();
 
-      final decrypted = gcm.process(Uint8List.fromList(encryptedData));
+      final decrypted = gcm.process(encryptedData);
 
       return DecryptionResult(
         success: true,
@@ -1319,7 +1420,7 @@ Future<_IsolateEncryptResult> _encryptFileIsolate(
       await for (final chunk in sourceFile
           .openRead()
           .transform(_ChunkedStreamTransformer(1024 * 1024))) {
-        sink.add(gcm.process(Uint8List.fromList(chunk)));
+        sink.add(gcm.process(chunk));
       }
     } else {
       final ctr = CTRStreamCipher(AESEngine())
@@ -1339,7 +1440,7 @@ Future<_IsolateEncryptResult> _encryptFileIsolate(
       await for (final chunk in sourceFile
           .openRead()
           .transform(_ChunkedStreamTransformer(1024 * 1024))) {
-        sink.add(ctr.process(Uint8List.fromList(chunk)));
+        sink.add(ctr.process(chunk));
       }
     }
 
@@ -1386,7 +1487,7 @@ Future<_IsolateDecryptResult> _decryptFileIsolate(
       await for (final chunk in encryptedFile
           .openRead(8)
           .transform(_ChunkedStreamTransformer(1024 * 1024))) {
-        sink.add(gcm.process(Uint8List.fromList(chunk)));
+        sink.add(gcm.process(chunk));
       }
     } else if (header[0] == 0x4C &&
         header[1] == 0x4B &&
@@ -1397,7 +1498,7 @@ Future<_IsolateDecryptResult> _decryptFileIsolate(
       await for (final chunk in encryptedFile
           .openRead(8)
           .transform(_ChunkedStreamTransformer(1024 * 1024))) {
-        sink.add(ctr.process(Uint8List.fromList(chunk)));
+        sink.add(ctr.process(chunk));
       }
     } else {
       await sink.close();
@@ -1492,27 +1593,44 @@ class KeyRotationResult {
 }
 
 class _ChunkedStreamTransformer
-    extends StreamTransformerBase<List<int>, List<int>> {
+    extends StreamTransformerBase<List<int>, Uint8List> {
   final int chunkSize;
 
   _ChunkedStreamTransformer(this.chunkSize);
 
   @override
-  Stream<List<int>> bind(Stream<List<int>> stream) {
-    final controller = StreamController<List<int>>();
-    final buffer = <int>[];
+  Stream<Uint8List> bind(Stream<List<int>> stream) {
+    final controller = StreamController<Uint8List>();
+    var buf = Uint8List(0);
+    int fill = 0;
 
     stream.listen(
       (data) {
-        buffer.addAll(data);
-        while (buffer.length >= chunkSize) {
-          controller.add(Uint8List.fromList(buffer.sublist(0, chunkSize)));
-          buffer.removeRange(0, chunkSize);
+        if (data.isEmpty) return;
+
+        final newFill = fill + data.length;
+        if (newFill > buf.length) {
+          final grown = Uint8List((newFill * 1.5).ceil());
+          if (fill > 0) grown.setRange(0, fill, buf);
+          buf = grown;
+        }
+        buf.setAll(fill, data);
+        fill = newFill;
+
+        while (fill >= chunkSize) {
+          controller.add(Uint8List.sublistView(buf, 0, chunkSize));
+          fill -= chunkSize;
+          if (fill > 0) {
+            buf = Uint8List.fromList(
+                Uint8List.sublistView(buf, chunkSize, chunkSize + fill));
+          } else {
+            buf = Uint8List(0);
+          }
         }
       },
       onDone: () {
-        if (buffer.isNotEmpty) {
-          controller.add(Uint8List.fromList(buffer));
+        if (fill > 0) {
+          controller.add(Uint8List.sublistView(buf, 0, fill));
         }
         controller.close();
       },
