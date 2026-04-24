@@ -1363,6 +1363,8 @@ class FileToVault {
 class VaultSettings {
   final bool encryptionEnabled;
   final bool secureDelete;
+  final bool screenshotProtectionEnabled;
+  final int autoKillDelaySeconds;
   final SortOption defaultSort;
   final bool showHiddenFiles;
   final bool autoBackup;
@@ -1379,6 +1381,8 @@ class VaultSettings {
   const VaultSettings({
     this.encryptionEnabled = false,
     this.secureDelete = true,
+    this.screenshotProtectionEnabled = false,
+    this.autoKillDelaySeconds = 0,
     this.defaultSort = SortOption.dateAddedNewest,
     this.showHiddenFiles = false,
     this.autoBackup = false,
@@ -1396,6 +1400,8 @@ class VaultSettings {
   VaultSettings copyWith({
     bool? encryptionEnabled,
     bool? secureDelete,
+    bool? screenshotProtectionEnabled,
+    int? autoKillDelaySeconds,
     SortOption? defaultSort,
     bool? showHiddenFiles,
     bool? autoBackup,
@@ -1412,6 +1418,9 @@ class VaultSettings {
     return VaultSettings(
       encryptionEnabled: encryptionEnabled ?? this.encryptionEnabled,
       secureDelete: secureDelete ?? this.secureDelete,
+      screenshotProtectionEnabled:
+          screenshotProtectionEnabled ?? this.screenshotProtectionEnabled,
+      autoKillDelaySeconds: autoKillDelaySeconds ?? this.autoKillDelaySeconds,
       defaultSort: defaultSort ?? this.defaultSort,
       showHiddenFiles: showHiddenFiles ?? this.showHiddenFiles,
       autoBackup: autoBackup ?? this.autoBackup,
@@ -1435,6 +1444,8 @@ class VaultSettings {
   Map<String, dynamic> toJson() => {
         'encryptionEnabled': encryptionEnabled,
         'secureDelete': secureDelete,
+        'screenshotProtectionEnabled': screenshotProtectionEnabled,
+        'autoKillDelaySeconds': autoKillDelaySeconds,
         'defaultSort': defaultSort.name,
         'showHiddenFiles': showHiddenFiles,
         'autoBackup': autoBackup,
@@ -1453,6 +1464,9 @@ class VaultSettings {
     return VaultSettings(
       encryptionEnabled: json['encryptionEnabled'] as bool? ?? false,
       secureDelete: json['secureDelete'] as bool? ?? true,
+      screenshotProtectionEnabled:
+          json['screenshotProtectionEnabled'] as bool? ?? false,
+      autoKillDelaySeconds: json['autoKillDelaySeconds'] as int? ?? 0,
       defaultSort: SortOption.values.firstWhere(
         (s) => s.name == (json['defaultSort'] as String? ?? 'dateAddedNewest'),
         orElse: () => SortOption.dateAddedNewest,
