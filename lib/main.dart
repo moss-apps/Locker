@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'services/auto_kill_service.dart';
+import 'services/screenshot_protection_service.dart';
+import 'services/vault_service.dart';
 import 'themes/app_theme.dart';
 import 'providers/theme_provider.dart';
 import 'services/auth_service.dart';
@@ -9,22 +12,28 @@ import 'screens/unlock_screen.dart';
 import 'utils/frame_rate_optimizer.dart';
 import 'utils/performance_config.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Configure high frame rate support
   PerformanceConfig.configureHighFrameRate();
   PerformanceConfig.optimizeImageCache();
-  
+
   // Start frame rate monitoring
   FrameRateOptimizer().startMonitoring();
-  
+
   // Set preferred orientations and system UI
-  SystemChrome.setPreferredOrientations([
+  await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  
+
+  final settings = await VaultService.instance.getSettings();
+  await AutoKillService.setDelaySeconds(settings.autoKillDelaySeconds);
+  await ScreenshotProtectionService.setEnabled(
+    settings.screenshotProtectionEnabled,
+  );
+
   runApp(const ProviderScope(child: LockerApp()));
 }
 
