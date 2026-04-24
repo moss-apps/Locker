@@ -143,10 +143,26 @@ class DocumentPickerScreen extends StatefulWidget {
   /// Title for the app bar
   final String title;
 
+  /// Extensions allowed in the picker.
+  final List<String> allowedExtensions;
+
+  /// Singular label for the selected file type.
+  final String itemLabel;
+
+  /// Plural label for the selected file type.
+  final String itemLabelPlural;
+
+  /// Icon for the empty/loading state.
+  final IconData stateIcon;
+
   const DocumentPickerScreen({
     super.key,
     this.maxSelection = 0,
     this.title = 'Select Documents',
+    this.allowedExtensions = supportedDocumentExtensions,
+    this.itemLabel = 'document',
+    this.itemLabelPlural = 'documents',
+    this.stateIcon = Icons.description_outlined,
   });
 
   @override
@@ -161,12 +177,19 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
   String _searchQuery = '';
   DocumentSortOption _sortOption = DocumentSortOption.dateDesc;
   final _searchController = TextEditingController();
-  String _currentFolder = 'All Documents';
+  late String _currentFolder;
   final Map<String, List<DocumentFile>> _folderGroups = {};
+
+  String get _allItemsLabel => 'All ${widget.itemLabelPlural}';
+
+  String get _itemLabelPluralCapitalized =>
+      widget.itemLabelPlural[0].toUpperCase() +
+      widget.itemLabelPlural.substring(1);
 
   @override
   void initState() {
     super.initState();
+    _currentFolder = _allItemsLabel;
     _scanForDocuments();
   }
 
@@ -191,9 +214,9 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
       if (!hasPermission) {
         setState(() {
           _isLoading = false;
-          _error = 'Storage permission is required to browse documents';
-        });
-        return;
+            _error = 'Storage permission is required to browse documents';
+          });
+          return;
       }
 
       final foundDocuments = <DocumentFile>[];
@@ -244,7 +267,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
 
       // Group by folder
       _folderGroups.clear();
-      _folderGroups['All Documents'] = foundDocuments;
+      _folderGroups[_allItemsLabel] = foundDocuments;
       for (final doc in foundDocuments) {
         final folder = Directory(doc.path).parent.path.split('/').last;
         _folderGroups.putIfAbsent(folder, () => []).add(doc);
@@ -303,7 +326,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
               ? fileName.split('.').last.toLowerCase()
               : '';
 
-          if (supportedDocumentExtensions.contains(ext)) {
+          if (widget.allowedExtensions.contains(ext)) {
             try {
               final stat = await entity.stat();
               results.add(DocumentFile(
@@ -329,7 +352,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
 
   /// Get filtered and sorted documents
   List<DocumentFile> get _filteredDocuments {
-    var docs = _currentFolder == 'All Documents'
+    var docs = _currentFolder == _allItemsLabel
         ? List<DocumentFile>.from(_documents)
         : List<DocumentFile>.from(_folderGroups[_currentFolder] ?? []);
 
@@ -477,7 +500,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
         controller: _searchController,
         onChanged: (value) => setState(() => _searchQuery = value),
         decoration: InputDecoration(
-          hintText: 'Search documents...',
+          hintText: 'Search ${widget.itemLabelPlural}...',
           hintStyle: TextStyle(
             fontFamily: 'ProductSans',
             color: context.textTertiary,
@@ -555,9 +578,9 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        folder == 'All Documents'
-                            ? Icons.folder_special
-                            : Icons.folder,
+                         folder == _allItemsLabel
+                             ? Icons.folder_special
+                             : Icons.folder,
                         size: 18,
                         color: context.accentColor,
                       ),
@@ -638,7 +661,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Scanning for documents...',
+            'Scanning for ${widget.itemLabelPlural}...',
             style: TextStyle(
               fontFamily: 'ProductSans',
               fontSize: 16,
@@ -699,15 +722,15 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.description_outlined,
+            widget.stateIcon,
             size: 64,
             color: context.textTertiary,
           ),
           const SizedBox(height: 16),
           Text(
             _searchQuery.isNotEmpty
-                ? 'No documents matching "$_searchQuery"'
-                : 'No documents found',
+                ? 'No ${widget.itemLabelPlural} matching "$_searchQuery"'
+                : 'No ${widget.itemLabelPlural} found',
             style: TextStyle(
               fontFamily: 'ProductSans',
               fontSize: 18,
@@ -716,7 +739,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Documents will appear here when found on your device',
+            'Your ${widget.itemLabelPlural} will appear here when found on your device',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'ProductSans',
@@ -930,7 +953,7 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
           ElevatedButton.icon(
             onPressed: _confirmSelection,
             icon: const Icon(Icons.check, size: 20),
-            label: const Text('Hide Selected'),
+            label: Text('Hide $_itemLabelPluralCapitalized'),
             style: ElevatedButton.styleFrom(
               backgroundColor: context.accentColor,
               foregroundColor: Colors.white,
