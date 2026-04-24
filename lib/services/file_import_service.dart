@@ -415,11 +415,7 @@ class FileImportService {
             successCount++;
 
             // Remove from vault if requested
-            // IMPORTANT: Only remove after successful export AND media scan
             if (removeFromVault) {
-              // Small delay to ensure media scan completes
-              await Future.delayed(const Duration(milliseconds: 500));
-
               await _vaultService.removeFile(fileId, isDecoy: isDecoy);
               debugPrint('[FileImport] Removed file from vault: $fileId');
             }
@@ -1469,42 +1465,31 @@ class FileImportService {
 
       debugPrint('[FileImport] Looking for files matching: $fileNameSet');
 
-      // Search through all albums
+      // Search through all albums - fetch all assets per album at once
       int totalAssetsSearched = 0;
       for (final album in albums) {
         final count = await album.assetCountAsync;
         if (count == 0) continue;
 
-        // Get assets in batches
-        const batchSize = 100;
-        for (int i = 0; i < count; i += batchSize) {
-          final assets = await album.getAssetListRange(
-            start: i,
-            end: (i + batchSize).clamp(0, count),
-          );
+        final assets = await album.getAssetListRange(start: 0, end: count);
+        totalAssetsSearched += assets.length;
 
-          totalAssetsSearched += assets.length;
+        for (final asset in assets) {
+          final title = asset.title?.toLowerCase() ?? '';
+          final titleNoExt = title.contains('.')
+              ? title.substring(0, title.lastIndexOf('.'))
+              : title;
+          if (fileNameSet.contains(title) || fileNameSet.contains(titleNoExt)) {
+            debugPrint(
+                '[FileImport] Found matching asset: ${asset.title} (id: ${asset.id})');
+            matchingAssets.add(asset);
+            fileNameSet.remove(title);
+            fileNameSet.remove(titleNoExt);
 
-          for (final asset in assets) {
-            final title = asset.title?.toLowerCase() ?? '';
-            final titleNoExt = title.contains('.')
-                ? title.substring(0, title.lastIndexOf('.'))
-                : title;
-            if (fileNameSet.contains(title) ||
-                fileNameSet.contains(titleNoExt)) {
+            if (fileNameSet.isEmpty) {
               debugPrint(
-                  '[FileImport] Found matching asset: ${asset.title} (id: ${asset.id})');
-              matchingAssets.add(asset);
-              // Remove from set to avoid duplicates
-              fileNameSet.remove(title);
-              fileNameSet.remove(titleNoExt);
-
-              // If we found all files, return early
-              if (fileNameSet.isEmpty) {
-                debugPrint(
-                    '[FileImport] Found all ${matchingAssets.length} matching assets');
-                return matchingAssets;
-              }
+                  '[FileImport] Found all ${matchingAssets.length} matching assets');
+              return matchingAssets;
             }
           }
         }

@@ -25,10 +25,33 @@ class FileProgressInfo {
   });
 }
 
+class _PreparedVaultAddition {
+  final VaultedFile vaultedFile;
+
+  const _PreparedVaultAddition({required this.vaultedFile});
+}
+
+class _BatchPreparationResult {
+  final int index;
+  final FileToVault file;
+  final int fileSize;
+  final _PreparedVaultAddition? prepared;
+
+  const _BatchPreparationResult({
+    required this.index,
+    required this.file,
+    required this.fileSize,
+    required this.prepared,
+  });
+}
+
 /// Service for managing vaulted files storage
 class VaultService {
   VaultService._();
   static final VaultService instance = VaultService._();
+
+  static const int _largeFileIsolateThresholdBytes = 5 * 1024 * 1024;
+  static const int _maxConcurrentBatchAdds = 3;
 
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(),
@@ -327,6 +350,23 @@ class VaultService {
     await source.openRead().pipe(sink);
   }
 
+  Future<void> _deleteFileIfExists(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
+  }
+
+  Future<int> _getFileSizeIfExists(String path) async {
+    try {
+      return await File(path).length();
+    } catch (_) {
+      return 0;
+    }
+  }
+
   /// Generate a unique encrypted filename
   String _generateVaultFilename(String originalName) {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -351,156 +391,27 @@ class VaultService {
     List<String>? tags,
     List<String>? albumIds,
   }) async {
-    try {
-      var sourcePathToUse = sourcePath;
+    final prepared = await _prepareVaultAddition(
+      sourcePath: sourcePath,
+      originalName: originalName,
+      type: type,
+      mimeType: mimeType,
+      encrypt: encrypt,
+      isDecoy: isDecoy,
+      tags: tags,
+      albumIds: albumIds,
+    );
 
-      final sourceFile = File(sourcePath);
-      if (!await sourceFile.exists()) {
-        debugPrint('Source file does not exist: $sourcePath');
-        return null;
-      }
-
-      _cachedSettings ??= await _loadSettings();
-
-      if (_cachedSettings?.compressionEnabled == true) {
-        if (type == VaultedFileType.image) {
-          final compressedPath =
-              await CompressionService.instance.compressImage(sourcePath);
-          if (compressedPath != null) {
-            sourcePathToUse = compressedPath;
-            debugPrint('[Vault] Using compressed image: $compressedPath');
-          }
-        } else if (type == VaultedFileType.video) {
-          final compressedPath =
-              await CompressionService.instance.compressVideo(sourcePath);
-          if (compressedPath != null) {
-            sourcePathToUse = compressedPath;
-            debugPrint('[Vault] Using compressed video: $compressedPath');
-          }
-        }
-      }
-
-      final sourceFileForProcessing = File(sourcePathToUse);
-      if (!await sourceFileForProcessing.exists()) {
-        debugPrint('Processed file does not exist: $sourcePathToUse');
-        return null;
-      }
-
-      final directory = isDecoy
-          ? await _ensureDecoyDirectory()
-          : await _ensureVaultDirectory();
-
-      final vaultFilename = _generateVaultFilename(originalName);
-      final subdirectory = _getSubdirectory(type);
-      final vaultPath = '${directory.path}/$subdirectory/$vaultFilename';
-
-      String? encryptionIv;
-      int fileSize;
-      fileSize = await sourceFileForProcessing.length();
-
-      const largeFileThreshold = 10 * 1024 * 1024;
-      final isLargeFile = fileSize > largeFileThreshold;
-
-      if (encrypt || _cachedSettings?.encryptionEnabled == true) {
-        FileEncryptionResult encResult;
-        if (isLargeFile) {
-          encResult = await _encryptionService.encryptFileStreamed(
-            sourcePathToUse,
-            vaultPath,
-            isDecoy: isDecoy,
-          );
-        } else {
-          encResult = await _encryptionService.encryptFile(
-            sourcePathToUse,
-            vaultPath,
-            isDecoy: isDecoy,
-          );
-        }
-
-        if (!encResult.success) {
-          debugPrint('Encryption failed: ${encResult.error}');
-          return null;
-        }
-
-        encryptionIv = encResult.iv;
-        fileSize = encResult.originalSize ?? fileSize;
-      } else {
-        if (isLargeFile) {
-          await _streamCopyFile(sourceFileForProcessing, File(vaultPath));
-        } else {
-          await sourceFileForProcessing.copy(vaultPath);
-        }
-      }
-
-      if (sourcePathToUse != sourcePath) {
-        try {
-          await File(sourcePathToUse).delete();
-          debugPrint(
-              '[Vault] Cleaned up compressed temp file: $sourcePathToUse');
-        } catch (e) {
-          debugPrint('[Vault] Could not delete temp compressed file: $e');
-        }
-      }
-
-      final fileId = sha256
-          .convert(
-              utf8.encode('$vaultPath${DateTime.now().millisecondsSinceEpoch}'))
-          .toString()
-          .substring(0, 24);
-
-      final vaultedFile = VaultedFile(
-        id: fileId,
-        originalName: originalName,
-        vaultPath: vaultPath,
-        originalPath: sourcePath,
-        type: type,
-        mimeType: mimeType,
-        fileSize: fileSize,
-        dateAdded: DateTime.now(),
-        isEncrypted: encrypt || _cachedSettings?.encryptionEnabled == true,
-        encryptionIv: encryptionIv,
-        isDecoy: isDecoy,
-        tags: tags ?? [],
-        albumIds: albumIds ?? [],
-      );
-
-      // Add to index
-      if (isDecoy) {
-        _cachedDecoyFiles ??= [];
-        _cachedDecoyFiles!.add(vaultedFile);
-        await _saveFileIndex(isDecoy: true);
-      } else {
-        _cachedFiles ??= [];
-        _cachedFiles!.add(vaultedFile);
-        await _saveFileIndex();
-
-        // Update album file counts if needed
-        if (albumIds != null && albumIds.isNotEmpty) {
-          for (final albumId in albumIds) {
-            await addFileToAlbum(fileId, albumId);
-          }
-        }
-
-        // Update tag usage counts
-        if (tags != null && tags.isNotEmpty) {
-          await _updateTagUsage(tags);
-        }
-      }
-
-      // Delete original if requested
-      if (deleteOriginal) {
-        try {
-          await sourceFile.delete();
-        } catch (e) {
-          debugPrint('Could not delete original file: $e');
-        }
-      }
-
-      return vaultedFile;
-    } catch (e) {
-      debugPrint('Error adding file to vault: $e');
+    if (prepared == null) {
       return null;
     }
+
+    await _storePreparedVaultAddition(
+      prepared,
+      deleteOriginal: deleteOriginal,
+    );
+
+    return prepared.vaultedFile;
   }
 
   /// Add multiple files to the vault (batch import)
@@ -516,45 +427,285 @@ class VaultService {
     _cachedSettings ??= await _loadSettings();
     final results = <VaultedFile>[];
 
-    for (int i = 0; i < files.length; i++) {
-      final file = files[i];
-      onProgress?.call(i + 1, files.length);
+    int completed = 0;
 
-      final sourceFile = File(file.sourcePath);
-      final fileSize = await sourceFile.length();
+    for (int start = 0;
+        start < files.length;
+        start += _maxConcurrentBatchAdds) {
+      final chunk = files
+          .sublist(
+            start,
+            start + _maxConcurrentBatchAdds > files.length
+                ? files.length
+                : start + _maxConcurrentBatchAdds,
+          )
+          .asMap()
+          .entries
+          .map((entry) => (index: start + entry.key, file: entry.value))
+          .toList();
 
-      onFileProgress?.call(FileProgressInfo(
-        current: i + 1,
-        total: files.length,
-        fileName: file.originalName,
-        fileSize: fileSize,
-        status: 'Processing...',
-      ));
+      final preparedChunk = await Future.wait(
+        chunk.map((entry) async {
+          final fileSize = await _getFileSizeIfExists(entry.file.sourcePath);
 
-      final result = await addFile(
-        sourcePath: file.sourcePath,
-        originalName: file.originalName,
-        type: file.type,
-        mimeType: file.mimeType,
-        deleteOriginal: deleteOriginals,
-        encrypt: encrypt,
-        isDecoy: isDecoy,
+          onFileProgress?.call(FileProgressInfo(
+            current: entry.index + 1,
+            total: files.length,
+            fileName: entry.file.originalName,
+            fileSize: fileSize,
+            status: 'Processing...',
+          ));
+
+          final prepared = await _prepareVaultAddition(
+            sourcePath: entry.file.sourcePath,
+            originalName: entry.file.originalName,
+            type: entry.file.type,
+            mimeType: entry.file.mimeType,
+            encrypt: encrypt,
+            isDecoy: isDecoy,
+          );
+
+          return _BatchPreparationResult(
+            index: entry.index,
+            file: entry.file,
+            fileSize: fileSize,
+            prepared: prepared,
+          );
+        }),
       );
 
-      if (result != null) {
-        results.add(result);
-      }
+      for (final preparedResult in preparedChunk) {
+        if (preparedResult.prepared != null) {
+          await _storePreparedVaultAddition(
+            preparedResult.prepared!,
+            deleteOriginal: deleteOriginals,
+          );
+          results.add(preparedResult.prepared!.vaultedFile);
+        }
 
-      onFileProgress?.call(FileProgressInfo(
-        current: i + 1,
-        total: files.length,
-        fileName: file.originalName,
-        fileSize: fileSize,
-        status: 'Complete',
-      ));
+        completed++;
+        onProgress?.call(completed, files.length);
+
+        onFileProgress?.call(FileProgressInfo(
+          current: preparedResult.index + 1,
+          total: files.length,
+          fileName: preparedResult.file.originalName,
+          fileSize: preparedResult.fileSize,
+          status: preparedResult.prepared != null ? 'Complete' : 'Failed',
+        ));
+      }
     }
 
     return results;
+  }
+
+  Future<_PreparedVaultAddition?> _prepareVaultAddition({
+    required String sourcePath,
+    required String originalName,
+    required VaultedFileType type,
+    required String mimeType,
+    required bool encrypt,
+    required bool isDecoy,
+    List<String>? tags,
+    List<String>? albumIds,
+  }) async {
+    String? sourcePathToUse;
+    String? vaultPath;
+    Uint8List? compressedImageBytes;
+
+    try {
+      final sourceFile = File(sourcePath);
+      if (!await sourceFile.exists()) {
+        debugPrint('Source file does not exist: $sourcePath');
+        return null;
+      }
+
+      sourcePathToUse = sourcePath;
+      _cachedSettings ??= await _loadSettings();
+
+      if (_cachedSettings?.compressionEnabled == true) {
+        if (type == VaultedFileType.image) {
+          final bytes =
+              await CompressionService.instance.compressImageToBytes(sourcePath);
+          if (bytes != null) {
+            compressedImageBytes = bytes;
+            debugPrint(
+                '[Vault] Using compressed image bytes (${bytes.length} bytes)');
+          }
+        } else if (type == VaultedFileType.video) {
+          final compressedPath =
+              await CompressionService.instance.compressVideo(sourcePath);
+          if (compressedPath != null) {
+            sourcePathToUse = compressedPath;
+            debugPrint('[Vault] Using compressed video: $compressedPath');
+          }
+        }
+      }
+
+      final directory = isDecoy
+          ? await _ensureDecoyDirectory()
+          : await _ensureVaultDirectory();
+
+      final vaultFilename = _generateVaultFilename(originalName);
+      final subdirectory = _getSubdirectory(type);
+      vaultPath = '${directory.path}/$subdirectory/$vaultFilename';
+
+      final shouldEncrypt =
+          encrypt || _cachedSettings?.encryptionEnabled == true;
+      String? encryptionIv;
+      int fileSize;
+
+      if (compressedImageBytes != null) {
+        fileSize = compressedImageBytes.length;
+
+        if (shouldEncrypt) {
+          final encResult =
+              await _encryptionService.encryptBytesStreamed(
+            compressedImageBytes,
+            vaultPath,
+            isDecoy: isDecoy,
+          );
+
+          if (!encResult.success) {
+            debugPrint('Encryption failed: ${encResult.error}');
+            await _deleteFileIfExists(vaultPath);
+            return null;
+          }
+
+          encryptionIv = encResult.iv;
+          fileSize = encResult.originalSize ?? fileSize;
+        } else {
+          await File(vaultPath).writeAsBytes(compressedImageBytes);
+        }
+      } else {
+        final sourceFileForProcessing = File(sourcePathToUse);
+        if (!await sourceFileForProcessing.exists()) {
+          debugPrint('Processed file does not exist: $sourcePathToUse');
+          return null;
+        }
+
+        fileSize = await sourceFileForProcessing.length();
+
+        if (shouldEncrypt) {
+          final encResult = fileSize >= _largeFileIsolateThresholdBytes
+              ? await _encryptionService.encryptFileInIsolate(
+                  sourcePathToUse,
+                  vaultPath,
+                  isDecoy: isDecoy,
+                  useGcm: false,
+                )
+              : await _encryptionService.encryptFileStreamed(
+                  sourcePathToUse,
+                  vaultPath,
+                  isDecoy: isDecoy,
+                );
+
+          if (!encResult.success) {
+            debugPrint('Encryption failed: ${encResult.error}');
+            await _deleteFileIfExists(vaultPath);
+            return null;
+          }
+
+          encryptionIv = encResult.iv;
+          fileSize = encResult.originalSize ?? fileSize;
+        } else {
+          await _streamCopyFile(sourceFileForProcessing, File(vaultPath));
+        }
+      }
+
+      final normalizedTags = (tags ?? [])
+          .map((tag) => tag.toLowerCase().trim())
+          .where((tag) => tag.isNotEmpty)
+          .toSet()
+          .toList();
+      final normalizedAlbumIds = (albumIds ?? []).toSet().toList();
+      final now = DateTime.now();
+      final fileId = sha256
+          .convert(utf8.encode('$vaultPath${now.millisecondsSinceEpoch}'))
+          .toString()
+          .substring(0, 24);
+
+      return _PreparedVaultAddition(
+        vaultedFile: VaultedFile(
+          id: fileId,
+          originalName: originalName,
+          vaultPath: vaultPath,
+          originalPath: sourcePath,
+          type: type,
+          mimeType: mimeType,
+          fileSize: fileSize,
+          dateAdded: now,
+          isFavorite: normalizedAlbumIds.contains('favorites'),
+          isEncrypted: shouldEncrypt,
+          encryptionIv: encryptionIv,
+          isDecoy: isDecoy,
+          tags: normalizedTags,
+          albumIds: normalizedAlbumIds,
+        ),
+      );
+    } catch (e) {
+      if (vaultPath != null) {
+        await _deleteFileIfExists(vaultPath);
+      }
+      debugPrint('Error adding file to vault: $e');
+      return null;
+    } finally {
+      if (sourcePathToUse != null && sourcePathToUse != sourcePath) {
+        try {
+          await File(sourcePathToUse).delete();
+          debugPrint(
+              '[Vault] Cleaned up compressed temp file: $sourcePathToUse');
+        } catch (e) {
+          debugPrint('[Vault] Could not delete temp compressed file: $e');
+        }
+      }
+    }
+  }
+
+  Future<void> _storePreparedVaultAddition(
+    _PreparedVaultAddition prepared, {
+    required bool deleteOriginal,
+  }) async {
+    final vaultedFile = prepared.vaultedFile;
+
+    if (vaultedFile.isDecoy) {
+      _cachedDecoyFiles ??= await _loadFileIndex(isDecoy: true);
+      _cachedDecoyFiles!.add(vaultedFile);
+      await _saveFileIndex(isDecoy: true);
+    } else {
+      _cachedFiles ??= await _loadFileIndex();
+      _cachedFiles!.add(vaultedFile);
+      await _saveFileIndex();
+
+      if (vaultedFile.albumIds.isNotEmpty) {
+        _cachedAlbums ??= await _loadAlbums();
+
+        for (final albumId in vaultedFile.albumIds) {
+          final albumIndex =
+              _cachedAlbums!.indexWhere((album) => album.id == albumId);
+          if (albumIndex != -1) {
+            _cachedAlbums![albumIndex] =
+                _cachedAlbums![albumIndex].addFile(vaultedFile.id);
+          }
+        }
+
+        await _saveAlbums();
+      }
+
+      if (vaultedFile.tags.isNotEmpty) {
+        await _updateTagUsage(vaultedFile.tags);
+      }
+    }
+
+    if (!deleteOriginal || vaultedFile.originalPath == null) {
+      return;
+    }
+
+    try {
+      await File(vaultedFile.originalPath!).delete();
+    } catch (e) {
+      debugPrint('Could not delete original file: $e');
+    }
   }
 
   /// Update a file's metadata
