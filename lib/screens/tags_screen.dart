@@ -12,6 +12,7 @@ import '../utils/toast_utils.dart';
 import '../utils/responsive_utils.dart';
 import 'media_viewer_screen.dart';
 import 'document_viewer_screen.dart';
+import 'song_player_screen.dart';
 
 /// Predefined tag colors
 final List<Color> tagColors = [
@@ -521,6 +522,10 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
         icon = Icons.videocam;
         color = Colors.red;
         break;
+      case VaultedFileType.song:
+        icon = Icons.music_note;
+        color = Colors.purple;
+        break;
       case VaultedFileType.document:
         icon = Icons.description;
         color = Colors.orange;
@@ -595,6 +600,13 @@ class _TagsScreenState extends ConsumerState<TagsScreen> {
             files: viewerFiles,
             initialIndex: initialIndex >= 0 ? initialIndex : 0,
           ),
+        ),
+      );
+    } else if (file.isSong) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SongPlayerScreen(file: file),
         ),
       );
     } else if (file.isDocument) {
