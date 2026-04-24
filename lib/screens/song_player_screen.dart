@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/vaulted_file.dart';
+import '../services/flick_integration_service.dart';
 import '../providers/vault_providers.dart';
 import '../services/auto_kill_service.dart';
 import '../themes/app_colors.dart';
@@ -24,23 +26,51 @@ class SongPlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<SongPlayerScreen> createState() => _SongPlayerScreenState();
 }
 
-class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen> {
+class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen>
+    with WidgetsBindingObserver {
   final AudioPlayer _player = AudioPlayer();
 
   bool _isLoading = true;
+  bool _isCheckingFlick = true;
+  bool _isFlickAvailable = false;
+  bool _reenableAutoKillOnResume = false;
   String? _error;
   File? _playbackFile;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadSong();
+    _loadFlickAvailability();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (_reenableAutoKillOnResume) {
+      AutoKillService.setEnabled(true);
+    }
     _player.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _reenableAutoKillOnResume) {
+      _reenableAutoKillOnResume = false;
+      AutoKillService.setEnabled(true);
+    }
+  }
+
+  Future<void> _loadFlickAvailability() async {
+    final isAvailable = await FlickIntegrationService.isAvailable();
+    if (!mounted) return;
+
+    setState(() {
+      _isFlickAvailable = isAvailable;
+      _isCheckingFlick = false;
+    });
   }
 
   Future<void> _loadSong() async {
@@ -203,6 +233,39 @@ class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen> {
     } catch (e) {
       if (mounted) Navigator.pop(context);
       ToastUtils.showError('Failed to open file: $e');
+    }
+  }
+
+  Future<void> _playWithFlick() async {
+    final playbackFile = _playbackFile;
+    if (playbackFile == null) {
+      ToastUtils.showError('Song is not ready yet');
+      return;
+    }
+
+    try {
+      await AutoKillService.setEnabled(false);
+      _reenableAutoKillOnResume = true;
+
+      await FlickIntegrationService.openAudioFile(
+        filePath: playbackFile.path,
+        mimeType: widget.file.mimeType,
+      );
+    } on PlatformException catch (e) {
+      _reenableAutoKillOnResume = false;
+      await AutoKillService.setEnabled(true);
+
+      final message = switch (e.code) {
+        'FLICK_NOT_INSTALLED' => 'Flick is not installed',
+        'FLICK_UNAVAILABLE' => 'Flick cannot open this song',
+        'FILE_NOT_FOUND' => 'Failed to prepare song for Flick',
+        _ => e.message ?? 'Failed to open Flick',
+      };
+      ToastUtils.showError(message);
+    } catch (e) {
+      _reenableAutoKillOnResume = false;
+      await AutoKillService.setEnabled(true);
+      ToastUtils.showError('Failed to open Flick: $e');
     }
   }
 
@@ -436,6 +499,19 @@ class _SongPlayerScreenState extends ConsumerState<SongPlayerScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
+                    if (!_isCheckingFlick && _isFlickAvailable && _playbackFile != null)
+                      FilledButton.icon(
+                        onPressed: _playWithFlick,
+                        icon: const Icon(Icons.music_note),
+                        label: const Text('Play with Flick'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.purple,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    if (!_isCheckingFlick && _isFlickAvailable && _playbackFile != null)
+                      const SizedBox(height: 12),
                     if (_playbackFile != null)
                       OutlinedButton.icon(
                         onPressed: _openWithExternalApp,
