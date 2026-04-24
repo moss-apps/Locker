@@ -7,6 +7,9 @@ import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Display
 import android.view.WindowManager
 import androidx.core.content.FileProvider
@@ -18,10 +21,28 @@ import java.io.File
 
 class MainActivity: FlutterFragmentActivity() {
     private val CHANNEL = "com.ultraelectronica.locker/autokill"
+    private val AUTO_KILL_PREFS = "locker_auto_kill"
+    private val AUTO_KILL_DELAY_KEY = "delay_seconds"
     private val MEDIA_SCANNER_CHANNEL = "com.example.vault/media_scanner"
+    private val SCREENSHOT_PROTECTION_CHANNEL = "com.ultraelectronica.locker/screenshot_protection"
     private val FLICK_CHANNEL = "com.ultraelectronica.locker/flick"
     private val FLICK_PACKAGE = "com.ultraelectronica.flick"
+    private val autoKillPreferences by lazy {
+        getSharedPreferences(AUTO_KILL_PREFS, MODE_PRIVATE)
+    }
+    private val autoKillHandler = Handler(Looper.getMainLooper())
+    private val autoKillRunnable = Runnable {
+        if (isAutoKillEnabled && !isFinishing && !isDestroyed) {
+            finishAndRemoveTask()
+        }
+    }
     private var isAutoKillEnabled = true
+    private var autoKillDelayMillis = 0L
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        autoKillDelayMillis = loadAutoKillDelayMillis()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -30,9 +51,39 @@ class MainActivity: FlutterFragmentActivity() {
         enableHighFrameRate()
         
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "setAutoKillEnabled") {
-                isAutoKillEnabled = call.arguments as Boolean
-                result.success(null)
+            when (call.method) {
+                "setAutoKillEnabled" -> {
+                    val enabled = call.arguments as? Boolean
+                    if (enabled == null) {
+                        result.error("INVALID_ARGUMENT", "Boolean flag is required", null)
+                    } else {
+                        setAutoKillEnabled(enabled)
+                        result.success(null)
+                    }
+                }
+                "setAutoKillDelaySeconds" -> {
+                    val seconds =
+                        (call.argument<Number>("seconds") ?: call.arguments as? Number)?.toInt()
+                    if (seconds == null || seconds < 0) {
+                        result.error("INVALID_ARGUMENT", "Non-negative delay is required", null)
+                    } else {
+                        setAutoKillDelaySeconds(seconds)
+                        result.success(null)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SCREENSHOT_PROTECTION_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "setScreenshotProtectionEnabled") {
+                val enabled = call.arguments as? Boolean
+                if (enabled == null) {
+                    result.error("INVALID_ARGUMENT", "Boolean flag is required", null)
+                } else {
+                    setScreenshotProtectionEnabled(enabled)
+                    result.success(null)
+                }
             } else {
                 result.notImplemented()
             }
@@ -164,6 +215,44 @@ class MainActivity: FlutterFragmentActivity() {
             result.error("SCAN_ERROR", "Failed to scan file: ${e.message}", null)
         }
     }
+
+    private fun setScreenshotProtectionEnabled(enabled: Boolean) {
+        if (enabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    private fun setAutoKillEnabled(enabled: Boolean) {
+        isAutoKillEnabled = enabled
+        if (!enabled) {
+            cancelAutoKill()
+        }
+    }
+
+    private fun setAutoKillDelaySeconds(seconds: Int) {
+        autoKillDelayMillis = seconds * 1000L
+        autoKillPreferences.edit().putInt(AUTO_KILL_DELAY_KEY, seconds).apply()
+    }
+
+    private fun loadAutoKillDelayMillis(): Long {
+        val seconds = autoKillPreferences.getInt(AUTO_KILL_DELAY_KEY, 0)
+        return seconds * 1000L
+    }
+
+    private fun cancelAutoKill() {
+        autoKillHandler.removeCallbacks(autoKillRunnable)
+    }
+
+    private fun scheduleAutoKill() {
+        cancelAutoKill()
+        if (autoKillDelayMillis <= 0L) {
+            finishAndRemoveTask()
+        } else {
+            autoKillHandler.postDelayed(autoKillRunnable, autoKillDelayMillis)
+        }
+    }
     
     private fun enableHighFrameRate() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -213,11 +302,20 @@ class MainActivity: FlutterFragmentActivity() {
         return windowManager.defaultDisplay.supportedModes[0]
     }
     
-    override fun onPause() {
-        super.onPause()
-        // Remove from recent apps when user leaves the app, ONLY if enabled
-        if (isAutoKillEnabled) {
-            finishAndRemoveTask()
+    override fun onStart() {
+        super.onStart()
+        cancelAutoKill()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isAutoKillEnabled && !isChangingConfigurations) {
+            scheduleAutoKill()
         }
+    }
+
+    override fun onDestroy() {
+        cancelAutoKill()
+        super.onDestroy()
     }
 }

@@ -172,6 +172,7 @@ class DocumentPickerScreen extends StatefulWidget {
 class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
   final List<DocumentFile> _documents = [];
   final Set<DocumentFile> _selectedDocuments = {};
+  final Map<String, GlobalKey> _tileKeys = {};
   bool _isLoading = true;
   String? _error;
   String _searchQuery = '';
@@ -179,6 +180,9 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
   final _searchController = TextEditingController();
   late String _currentFolder;
   final Map<String, List<DocumentFile>> _folderGroups = {};
+  bool _isSlidingSelection = false;
+  bool? _slidingSelectionValue;
+  final Set<String> _slidingTouchedDocumentPaths = {};
 
   String get _allItemsLabel => 'All ${widget.itemLabelPlural}';
 
@@ -214,9 +218,9 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
       if (!hasPermission) {
         setState(() {
           _isLoading = false;
-            _error = 'Storage permission is required to browse documents';
-          });
-          return;
+          _error = 'Storage permission is required to browse documents';
+        });
+        return;
       }
 
       final foundDocuments = <DocumentFile>[];
@@ -395,23 +399,116 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
 
   void _toggleSelection(DocumentFile doc) {
     setState(() {
-      if (_selectedDocuments.contains(doc)) {
-        _selectedDocuments.remove(doc);
-      } else {
-        if (widget.maxSelection > 0 &&
-            _selectedDocuments.length >= widget.maxSelection) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content:
-                  Text('Maximum ${widget.maxSelection} items can be selected'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-          return;
-        }
-        _selectedDocuments.add(doc);
-      }
+      _setSelected(doc, !_selectedDocuments.contains(doc));
     });
+  }
+
+  bool _setSelected(DocumentFile doc, bool isSelected,
+      {bool showLimitError = true}) {
+    if (isSelected) {
+      if (_selectedDocuments.contains(doc)) return true;
+
+      if (widget.maxSelection > 0 &&
+          _selectedDocuments.length >= widget.maxSelection) {
+        if (showLimitError) {
+          _showMaxSelectionMessage();
+        }
+        return false;
+      }
+
+      _selectedDocuments.add(doc);
+      return true;
+    }
+
+    _selectedDocuments.remove(doc);
+    return true;
+  }
+
+  void _showMaxSelectionMessage() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Maximum ${widget.maxSelection} items can be selected'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+  }
+
+  GlobalKey _tileKeyFor(String documentPath) {
+    return _tileKeys.putIfAbsent(documentPath, GlobalKey.new);
+  }
+
+  void _startSlidingSelection(DocumentFile doc) {
+    final shouldSelect = !_selectedDocuments.contains(doc);
+    if (!_setSelected(doc, shouldSelect)) return;
+
+    setState(() {
+      _isSlidingSelection = true;
+      _slidingSelectionValue = shouldSelect;
+      _slidingTouchedDocumentPaths
+        ..clear()
+        ..add(doc.path);
+    });
+  }
+
+  void _updateSlidingSelection(Offset globalPosition) {
+    if (!_isSlidingSelection || _slidingSelectionValue == null) return;
+
+    final documentPath = _documentPathAt(globalPosition);
+    if (documentPath == null ||
+        _slidingTouchedDocumentPaths.contains(documentPath)) {
+      return;
+    }
+
+    final doc = _documentByPath(documentPath);
+    if (doc == null) return;
+
+    final applied =
+        _setSelected(doc, _slidingSelectionValue!, showLimitError: false);
+    if (!applied) {
+      _showMaxSelectionMessage();
+      _stopSlidingSelection();
+      return;
+    }
+
+    setState(() {
+      _slidingTouchedDocumentPaths.add(documentPath);
+    });
+  }
+
+  void _stopSlidingSelection() {
+    if (!_isSlidingSelection) return;
+
+    setState(() {
+      _isSlidingSelection = false;
+      _slidingSelectionValue = null;
+      _slidingTouchedDocumentPaths.clear();
+    });
+  }
+
+  DocumentFile? _documentByPath(String documentPath) {
+    for (final doc in _filteredDocuments) {
+      if (doc.path == documentPath) return doc;
+    }
+    return null;
+  }
+
+  String? _documentPathAt(Offset globalPosition) {
+    for (final entry in _tileKeys.entries) {
+      final context = entry.value.currentContext;
+      if (context == null) continue;
+
+      final renderObject = context.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) continue;
+
+      final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+      if (rect.contains(globalPosition)) {
+        return entry.key;
+      }
+    }
+
+    return null;
   }
 
   void _selectAll() {
@@ -578,9 +675,9 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
                   child: Row(
                     children: [
                       Icon(
-                         folder == _allItemsLabel
-                             ? Icons.folder_special
-                             : Icons.folder,
+                        folder == _allItemsLabel
+                            ? Icons.folder_special
+                            : Icons.folder,
                         size: 18,
                         color: context.accentColor,
                       ),
@@ -754,6 +851,10 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
 
   Widget _buildDocumentList() {
     final docs = _filteredDocuments;
+    _tileKeys.removeWhere(
+      (documentPath, _) => !docs.any((doc) => doc.path == documentPath),
+    );
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: docs.length,
@@ -768,150 +869,159 @@ class _DocumentPickerScreenState extends State<DocumentPickerScreen> {
     final selectionIndex = _selectedDocuments.toList().indexOf(doc);
 
     return Padding(
+      key: _tileKeyFor(doc.path),
       padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: isSelected
-            ? context.accentColor.withValues(alpha: 0.1)
-            : context.backgroundSecondary,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: () => _toggleSelection(doc),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPressStart: (_) => _startSlidingSelection(doc),
+        onLongPressMoveUpdate: (details) =>
+            _updateSlidingSelection(details.globalPosition),
+        onLongPressEnd: (_) => _stopSlidingSelection(),
+        onLongPressCancel: _stopSlidingSelection,
+        child: Material(
+          color: isSelected
+              ? context.accentColor.withValues(alpha: 0.1)
+              : context.backgroundSecondary,
           borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // File type icon
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: doc.iconColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            onTap: () => _toggleSelection(doc),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // File type icon
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: doc.iconColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      doc.icon,
+                      color: doc.iconColor,
+                      size: 26,
+                    ),
                   ),
-                  child: Icon(
-                    doc.icon,
-                    color: doc.iconColor,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // File info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        doc.name,
-                        style: TextStyle(
-                          fontFamily: 'ProductSans',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: context.textPrimary,
+                  const SizedBox(width: 12),
+                  // File info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          doc.name,
+                          style: TextStyle(
+                            fontFamily: 'ProductSans',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: context.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            doc.formattedSize,
-                            style: TextStyle(
-                              fontFamily: 'ProductSans',
-                              fontSize: 12,
-                              color: context.textSecondary,
-                            ),
-                          ),
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                            width: 3,
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: context.textTertiary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          Text(
-                            doc.formattedDate,
-                            style: TextStyle(
-                              fontFamily: 'ProductSans',
-                              fontSize: 12,
-                              color: context.textSecondary,
-                            ),
-                          ),
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                            width: 3,
-                            height: 3,
-                            decoration: BoxDecoration(
-                              color: context.textTertiary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: doc.iconColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              doc.extension.toUpperCase(),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              doc.formattedSize,
                               style: TextStyle(
                                 fontFamily: 'ProductSans',
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: doc.iconColor,
+                                fontSize: 12,
+                                color: context.textSecondary,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 8),
+                              width: 3,
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: context.textTertiary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            Text(
+                              doc.formattedDate,
+                              style: TextStyle(
+                                fontFamily: 'ProductSans',
+                                fontSize: 12,
+                                color: context.textSecondary,
+                              ),
+                            ),
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 8),
+                              width: 3,
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: context.textTertiary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: doc.iconColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                doc.extension.toUpperCase(),
+                                style: TextStyle(
+                                  fontFamily: 'ProductSans',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: doc.iconColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Selection indicator
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isSelected
-                        ? context.accentColor
-                        : Colors.white.withValues(alpha: 0.7),
-                    border: Border.all(
+                  const SizedBox(width: 8),
+                  // Selection indicator
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                       color: isSelected
                           ? context.accentColor
-                          : Colors.grey.shade400,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 2,
+                          : Colors.white.withValues(alpha: 0.7),
+                      border: Border.all(
+                        color: isSelected
+                            ? context.accentColor
+                            : Colors.grey.shade400,
+                        width: 2,
                       ),
-                    ],
-                  ),
-                  child: isSelected
-                      ? Center(
-                          child: Text(
-                            '${selectionIndex + 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'ProductSans',
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: isSelected
+                        ? Center(
+                            child: Text(
+                              '${selectionIndex + 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'ProductSans',
+                              ),
                             ),
-                          ),
-                        )
-                      : null,
-                ),
-              ],
+                          )
+                        : null,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

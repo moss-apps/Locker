@@ -5,15 +5,33 @@ class AutoKillService {
   static const MethodChannel _channel =
       MethodChannel('com.ultraelectronica.locker/autokill');
 
+  static bool get isSupported =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
   /// Set whether the auto-kill feature (killing app on pause) is enabled.
   /// Set to [false] before requesting permissions or launching external intents.
   /// Set back to [true] immediately after the interaction is complete or the app resumes.
   static Future<void> setEnabled(bool enabled) async {
+    if (!isSupported) return;
+
     try {
       await _channel.invokeMethod('setAutoKillEnabled', enabled);
       debugPrint('[AutoKill] Set enabled: $enabled');
     } on PlatformException catch (e) {
       debugPrint('[AutoKill] Failed to set enabled: $e');
+    }
+  }
+
+  static Future<void> setDelaySeconds(int seconds) async {
+    if (!isSupported) return;
+
+    try {
+      await _channel.invokeMethod('setAutoKillDelaySeconds', {
+        'seconds': seconds,
+      });
+      debugPrint('[AutoKill] Set delay seconds: $seconds');
+    } on PlatformException catch (e) {
+      debugPrint('[AutoKill] Failed to set delay: $e');
     }
   }
 

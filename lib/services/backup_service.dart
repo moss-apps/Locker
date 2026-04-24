@@ -50,17 +50,21 @@ class BackupService {
     return '$_zipPrefix${const Uuid().v4().replaceAll('-', '')}$_zipSuffix';
   }
 
-  /// ZIPs all real vault files (decrypted) into [destinationDirPath] with a random name.
+  /// ZIPs real vault files (decrypted) into [destinationDirPath] with a random name.
   Future<BackupResult> createBackup(
     String destinationDirPath, {
+    List<VaultedFile>? files,
     void Function(int current, int total)? onProgress,
   }) async {
     try {
-      final files = await _vaultService.getAllFiles(isDecoy: false);
-      if (files.isEmpty) {
-        return const BackupResult(
+      final filesToBackup =
+          files ?? await _vaultService.getAllFiles(isDecoy: false);
+      if (filesToBackup.isEmpty) {
+        return BackupResult(
           success: false,
-          error: 'No files in vault to backup',
+          error: files == null
+              ? 'No files in vault to backup'
+              : 'No files selected for backup',
         );
       }
 
@@ -74,11 +78,11 @@ class BackupService {
         final zipPath = '$destinationDirPath/${generateRandomZipName()}';
         encoder.create(zipPath);
 
-        final total = files.length;
+        final total = filesToBackup.length;
         int current = 0;
         final usedNames = <String, int>{};
 
-        for (final file in files) {
+        for (final file in filesToBackup) {
           final subdir = _subdirForType(file.type);
           final dir = Directory('${workDir.path}/$subdir');
           if (!await dir.exists()) await dir.create(recursive: true);

@@ -33,11 +33,15 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
   AssetPathEntity? _currentAlbum;
   List<AssetEntity> _assets = [];
   final Set<AssetEntity> _selectedAssets = {};
+  final Map<String, GlobalKey> _tileKeys = {};
   bool _isLoading = true;
   int _currentPage = 0;
   static const int _pageSize = 80;
   bool _hasMoreToLoad = true;
   final ScrollController _scrollController = ScrollController();
+  bool _isSlidingSelection = false;
+  bool? _slidingSelectionValue;
+  final Set<String> _slidingTouchedAssetIds = {};
 
   @override
   void initState() {
@@ -147,23 +151,113 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
 
   void _toggleSelection(AssetEntity asset) {
     setState(() {
-      if (_selectedAssets.contains(asset)) {
-        _selectedAssets.remove(asset);
-      } else {
-        if (widget.maxSelection > 0 &&
-            _selectedAssets.length >= widget.maxSelection) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content:
-                  Text('Maximum ${widget.maxSelection} items can be selected'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-          return;
-        }
-        _selectedAssets.add(asset);
-      }
+      _setSelected(asset, !_selectedAssets.contains(asset));
     });
+  }
+
+  bool _setSelected(AssetEntity asset, bool isSelected,
+      {bool showLimitError = true}) {
+    if (isSelected) {
+      if (_selectedAssets.contains(asset)) return true;
+
+      if (widget.maxSelection > 0 &&
+          _selectedAssets.length >= widget.maxSelection) {
+        if (showLimitError) {
+          _showMaxSelectionMessage();
+        }
+        return false;
+      }
+
+      _selectedAssets.add(asset);
+      return true;
+    }
+
+    _selectedAssets.remove(asset);
+    return true;
+  }
+
+  void _showMaxSelectionMessage() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Maximum ${widget.maxSelection} items can be selected'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+  }
+
+  GlobalKey _tileKeyFor(String assetId) {
+    return _tileKeys.putIfAbsent(assetId, GlobalKey.new);
+  }
+
+  void _startSlidingSelection(AssetEntity asset) {
+    final shouldSelect = !_selectedAssets.contains(asset);
+    if (!_setSelected(asset, shouldSelect)) return;
+
+    setState(() {
+      _isSlidingSelection = true;
+      _slidingSelectionValue = shouldSelect;
+      _slidingTouchedAssetIds
+        ..clear()
+        ..add(asset.id);
+    });
+  }
+
+  void _updateSlidingSelection(Offset globalPosition) {
+    if (!_isSlidingSelection || _slidingSelectionValue == null) return;
+
+    final assetId = _assetIdAt(globalPosition);
+    if (assetId == null || _slidingTouchedAssetIds.contains(assetId)) return;
+
+    final asset = _assetById(assetId);
+    if (asset == null) return;
+
+    final applied =
+        _setSelected(asset, _slidingSelectionValue!, showLimitError: false);
+    if (!applied) {
+      _showMaxSelectionMessage();
+      _stopSlidingSelection();
+      return;
+    }
+
+    setState(() {
+      _slidingTouchedAssetIds.add(assetId);
+    });
+  }
+
+  void _stopSlidingSelection() {
+    if (!_isSlidingSelection) return;
+
+    setState(() {
+      _isSlidingSelection = false;
+      _slidingSelectionValue = null;
+      _slidingTouchedAssetIds.clear();
+    });
+  }
+
+  AssetEntity? _assetById(String assetId) {
+    for (final asset in _assets) {
+      if (asset.id == assetId) return asset;
+    }
+    return null;
+  }
+
+  String? _assetIdAt(Offset globalPosition) {
+    for (final entry in _tileKeys.entries) {
+      final context = entry.value.currentContext;
+      if (context == null) continue;
+
+      final renderObject = context.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) continue;
+
+      final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+      if (rect.contains(globalPosition)) {
+        return entry.key;
+      }
+    }
+
+    return null;
   }
 
   void _selectAll() {
@@ -310,6 +404,10 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
   }
 
   Widget _buildMediaGrid() {
+    _tileKeys.removeWhere(
+      (assetId, _) => !_assets.any((asset) => asset.id == assetId),
+    );
+
     return GridView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.all(2),
@@ -341,8 +439,14 @@ class _MediaPickerScreenState extends State<MediaPickerScreen> {
     final selectionIndex = _selectedAssets.toList().indexOf(asset);
 
     return GestureDetector(
+      onLongPressStart: (_) => _startSlidingSelection(asset),
+      onLongPressMoveUpdate: (details) =>
+          _updateSlidingSelection(details.globalPosition),
+      onLongPressEnd: (_) => _stopSlidingSelection(),
+      onLongPressCancel: _stopSlidingSelection,
       onTap: () => _toggleSelection(asset),
       child: Stack(
+        key: _tileKeyFor(asset.id),
         fit: StackFit.expand,
         children: [
           // Thumbnail
