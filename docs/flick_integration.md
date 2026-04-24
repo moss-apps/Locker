@@ -16,6 +16,7 @@ This keeps the two apps feeling like one ecosystem instead of two unrelated apps
 Locker now exposes these Android integration points:
 
 - Locker package: `com.ultraelectronica.locker`
+- Flick package: `com.ultraelectronica.flick`
 - Return URI: `locker://return`
 - Main activity launch mode: `singleTask`
 - Return intent filter: `ACTION_VIEW` on `locker://return`
@@ -132,17 +133,18 @@ Why this is the right shape:
 
 If you want to be defensive, wrap the launch in a `try/catch` and fall back to a normal `finish()` if Locker is unavailable.
 
-## 5. Keep Flick's package name stable
+## 5. Package-targeted handoff
 
-For the first version, Locker can still hand off audio through the normal Android app chooser or generic open flow.
+Locker now knows Flick's package name and can target it directly:
 
-For tighter ecosystem integration later, Locker will need Flick's stable Android package name so it can:
+- Flick package: `com.ultraelectronica.flick`
+- Locker can detect whether Flick is installed
+- Locker can show a dedicated `Play with Flick` action
+- Locker can skip the generic app chooser when the user explicitly wants Flick
 
-- detect whether Flick is installed
-- show a dedicated `Play with Flick` action
-- target Flick directly instead of showing every compatible audio app
+That makes the handoff deterministic and keeps the two-app flow feeling tighter.
 
-So on the Flick side, avoid changing the package identifier casually once you settle on one.
+Because of that, Flick's package identifier should now be treated as part of the integration contract.
 
 ## Recommended UX Flow
 
@@ -172,12 +174,13 @@ Run these checks before calling the integration done:
 6. Confirm the handed-off song does not appear in gallery/music scanners because of Flick.
 7. Confirm closing Flick does not leave stale temp playback state behind.
 
-## Future Tightening
+## Locker-side implementation status
 
-Once Flick's package name is final, Locker can add a dedicated package-targeted handoff path. That would allow:
+Locker is configured to support this integration now:
 
-- a direct `Play with Flick` button in Locker
-- an install check for Flick
-- skipping the generic app chooser when Flick is present
+- `locker://return` is registered in Locker's manifest
+- Locker uses `singleTask` so the existing task can be foregrounded again
+- Locker can query `com.ultraelectronica.flick`
+- Locker can offer a dedicated `Play with Flick` action for songs when Flick is installed
 
-The v1 contract in this document is enough to start building the ecosystem now.
+The remaining work is fully on Flick's side: accept the URI, play it, and provide the explicit return affordance.
