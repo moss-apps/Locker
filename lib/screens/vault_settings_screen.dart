@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/theme_provider.dart';
 import '../providers/vault_providers.dart';
@@ -354,6 +355,29 @@ class _VaultSettingsScreenState extends ConsumerState<VaultSettingsScreen> {
                   ),
                 ],
               ],
+              const SizedBox(height: 20),
+              Divider(color: context.borderColor),
+              const SizedBox(height: 20),
+              _buildSectionTitle(context, 'Support'),
+              ListTile(
+                leading: Icon(Icons.favorite_outline, color: context.accentColor),
+                title: const Text('Donate', style: TextStyle(fontFamily: 'ProductSans')),
+                subtitle: Text('Support development via Ko-fi', style: TextStyle(fontFamily: 'ProductSans', fontSize: 12, color: context.textTertiary)),
+                trailing: Icon(Icons.open_in_new, color: context.textTertiary),
+                onTap: () async {
+                  final url = Uri.parse('https://ko-fi.com/ultraelectronica');
+                  try {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not open donation page')),
+                      );
+                    }
+                  }
+                },
+                contentPadding: EdgeInsets.zero,
+              ),
             ],
           );
         },
